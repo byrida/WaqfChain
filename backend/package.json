@@ -1,0 +1,22 @@
+{
+  "name": "waqfchain-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "WaqfChain backend — Node.js / Express REST API and on-chain event indexer",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "express": "^4.19.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.0",
+    "ethers": "^6.13.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0",
+    "eslint": "^8.57.0"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "waqfchain-smart-contracts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "WaqfChain smart contracts — Solidity contracts for Waqf asset tokenization on Polygon Amoy",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "coverage": "hardhat coverage",
+    "deploy:amoy": "hardhat run scripts/deploy.js --network amoy",
+    "node": "hardhat node"
+  },
+  "devDependencies": {
+    "hardhat": "^2.22.0",
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@openzeppelin/contracts": "^5.0.0",
+    "dotenv": "^16.4.0"
+  }
+}
