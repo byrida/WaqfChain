@@ -1,0 +1,107 @@
+[
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "uint256", "name": "id", "type": "uint256" },
+      { "indexed": false, "internalType": "string", "name": "name", "type": "string" },
+      { "indexed": false, "internalType": "string", "name": "beneficiaryCategory", "type": "string" },
+      { "indexed": true, "internalType": "address", "name": "trustee", "type": "address" },
+      { "indexed": false, "internalType": "uint256", "name": "fundingGoal", "type": "uint256" }
+    ],
+    "name": "AssetCreated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "uint256", "name": "assetId", "type": "uint256" },
+      { "indexed": true, "internalType": "address", "name": "donor", "type": "address" },
+      { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }
+    ],
+    "name": "DonationReceived",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "uint256", "name": "assetId", "type": "uint256" },
+      { "indexed": true, "internalType": "address", "name": "to", "type": "address" },
+      { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" },
+      { "indexed": false, "internalType": "string", "name": "purpose", "type": "string" }
+    ],
+    "name": "FundsDisbursed",
+    "type": "event"
+  },
+  {
+    "inputs": [],
+    "name": "nextAssetId",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "string", "name": "_name", "type": "string" },
+      { "internalType": "string", "name": "_description", "type": "string" },
+      { "internalType": "string", "name": "_beneficiaryCategory", "type": "string" },
+      { "internalType": "address", "name": "_trustee", "type": "address" },
+      { "internalType": "uint256", "name": "_fundingGoal", "type": "uint256" }
+    ],
+    "name": "createAsset",
+    "outputs": [{ "internalType": "uint256", "name": "id", "type": "uint256" }],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "_assetId", "type": "uint256" }],
+    "name": "donate",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "uint256", "name": "_assetId", "type": "uint256" },
+      { "internalType": "address payable", "name": "_to", "type": "address" },
+      { "internalType": "uint256", "name": "_amount", "type": "uint256" },
+      { "internalType": "string", "name": "_purpose", "type": "string" }
+    ],
+    "name": "disburseFunds",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "_assetId", "type": "uint256" }],
+    "name": "getAsset",
+    "outputs": [
+      {
+        "components": [
+          { "internalType": "uint256", "name": "id", "type": "uint256" },
+          { "internalType": "string", "name": "name", "type": "string" },
+          { "internalType": "string", "name": "description", "type": "string" },
+          { "internalType": "string", "name": "beneficiaryCategory", "type": "string" },
+          { "internalType": "uint256", "name": "fundingGoal", "type": "uint256" },
+          { "internalType": "uint256", "name": "totalDonated", "type": "uint256" },
+          { "internalType": "address", "name": "trustee", "type": "address" },
+          { "internalType": "bool", "name": "isActive", "type": "bool" }
+        ],
+        "internalType": "struct WaqfRegistry.WaqfAsset",
+        "name": "asset",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "uint256", "name": "_assetId", "type": "uint256" },
+      { "internalType": "address", "name": "_donor", "type": "address" }
+    ],
+    "name": "getDonation",
+    "outputs": [{ "internalType": "uint256", "name": "amount", "type": "uint256" }],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]
