@@ -1,4 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
+import Layout from "../components/Layout";
+import KhatamStar from "../components/KhatamStar";
+import CategoryChip from "../components/CategoryChip";
+import ProgressBar from "../components/ProgressBar";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
@@ -35,45 +39,43 @@ export default function TrusteePortal() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="border-b border-gray-200 bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">WaqfChain</h1>
-            <p className="text-sm text-gray-500">Trustee Portal</p>
-          </div>
-          <nav className="flex gap-4 text-sm">
-            <a href="/" className="text-gray-500 hover:text-gray-800">Home</a>
-            <a href="/donor" className="text-gray-500 hover:text-gray-800">Donor</a>
-            <a href="/trustee" className="font-medium text-waqf-700 underline underline-offset-4">Trustee</a>
-            <a href="/beneficiary" className="text-gray-500 hover:text-gray-800">Beneficiary</a>
-          </nav>
+    <Layout>
+      <div className="mx-auto w-full max-w-6xl px-6 py-10">
+        {/* Masthead */}
+        <div className="mb-6">
+          <p className="text-xs font-semibold uppercase tracking-wider text-zellige">
+            Trustee portal
+          </p>
+          <h1 className="mt-1 font-display text-3xl font-semibold text-mihrab">
+            The steward&apos;s ledger
+          </h1>
+          <p className="mt-2 max-w-lg text-sm text-ink-soft">
+            Disburse endowment funds and put every payment on the record.
+          </p>
         </div>
-      </header>
 
-      <main className="mx-auto max-w-6xl px-6 py-8">
         {/* Wallet address input */}
-        <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4">
-          <label className="mb-1 block text-sm font-medium text-gray-700">
-            Trustee Wallet Address
+        <div className="mb-8 rounded-2xl border border-ink/10 bg-white p-5 shadow-sm">
+          <label
+            htmlFor="trustee-address"
+            className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-ink-soft"
+          >
+            Trustee wallet address
           </label>
-          <div className="flex gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row">
             <input
+              id="trustee-address"
               type="text"
               value={trusteeAddress}
               onChange={(e) => setTrusteeAddress(e.target.value)}
-              className="flex-1 rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm text-gray-900 focus:border-waqf-500 focus:outline-none focus:ring-2 focus:ring-waqf-500/20"
+              className="field flex-1 font-ledger"
               placeholder="0x..."
             />
-            <button
-              onClick={fetchAssets}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
+            <button onClick={fetchAssets} className="btn-ghost">
               Refresh
             </button>
           </div>
-          <p className="mt-2 text-xs text-gray-400">
+          <p className="mt-2 text-xs text-ink-soft">
             Showing assets where this address is the appointed trustee.
           </p>
         </div>
@@ -87,18 +89,21 @@ export default function TrusteePortal() {
 
         {/* Loading */}
         {loading && (
-          <div className="py-20 text-center text-gray-400">
-            <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-waqf-500" />
+          <div className="py-24 text-center text-ink-soft">
+            <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-mihrab/10 border-t-zellige" />
             Loading assets...
           </div>
         )}
 
         {/* Empty */}
         {!loading && trusteeAssets.length === 0 && (
-          <div className="py-20 text-center">
-            <p className="text-lg text-gray-500">No assets found for this trustee.</p>
-            <p className="mt-1 text-sm text-gray-400">
-              Make sure the address matches a Waqf asset's trustee.
+          <div className="py-24 text-center">
+            <KhatamStar className="mx-auto mb-4 h-10 w-10 text-mihrab/25" />
+            <p className="text-lg font-medium text-mihrab">
+              No assets found for this trustee.
+            </p>
+            <p className="mt-1 text-sm text-ink-soft">
+              Make sure the address matches a waqf asset&apos;s trustee.
             </p>
           </div>
         )}
@@ -106,17 +111,19 @@ export default function TrusteePortal() {
         {/* Asset cards */}
         {!loading && trusteeAssets.length > 0 && (
           <div className="space-y-6">
-            {trusteeAssets.map((asset) => (
-              <TrusteeAssetCard
+            {trusteeAssets.map((asset, i) => (
+              <div
                 key={asset.id}
-                asset={asset}
-                onDisbursed={fetchAssets}
-              />
+                className="motion-safe:animate-rise"
+                style={{ animationDelay: `${Math.min(i, 6) * 80}ms` }}
+              >
+                <TrusteeAssetCard asset={asset} onDisbursed={fetchAssets} />
+              </div>
             ))}
           </div>
         )}
-      </main>
-    </div>
+      </div>
+    </Layout>
   );
 }
 
@@ -168,7 +175,7 @@ function TrusteeAssetCard({ asset, onDisbursed }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Disbursement failed");
 
-      setSuccess(`Disbursed ${disburseAmount} ETH for "${disbursePurpose}"`);
+      setSuccess(`Disbursed ${disburseAmount} ETH for "${disbursePurpose}".`);
       setDisburseAmount("");
       setDisburseTo("");
       setDisbursePurpose("");
@@ -181,45 +188,47 @@ function TrusteeAssetCard({ asset, onDisbursed }) {
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-      {/* Asset details */}
-      <div className="border-b border-gray-100 p-5">
-        <div className="mb-2 flex items-start justify-between">
-          <h3 className="text-lg font-semibold text-gray-900">{asset.name}</h3>
-          <span className="rounded-full bg-waqf-100 px-2.5 py-0.5 text-xs font-medium text-waqf-800">
-            {asset.beneficiaryCategory}
-          </span>
+    <article className="overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-sm">
+      {/* Asset header */}
+      <div className="bg-mihrab p-6 text-porcelain">
+        <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+          <h3 className="font-display text-xl font-semibold leading-snug">
+            {asset.name}
+          </h3>
+          <CategoryChip dark>{asset.beneficiaryCategory}</CategoryChip>
         </div>
         {asset.description && (
-          <p className="mb-3 text-sm text-gray-500">{asset.description}</p>
+          <p className="mb-4 max-w-2xl text-sm leading-relaxed text-porcelain/70">
+            {asset.description}
+          </p>
         )}
-        <div className="mb-2 flex items-baseline justify-between text-sm">
-          <span className="font-medium text-gray-700">
-            {asset.totalDonatedETH} ETH{" "}
-            <span className="font-normal text-gray-400">available</span>
-          </span>
-          <span className="text-gray-400">goal: {asset.fundingGoalETH} ETH</span>
+        <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+          <p className="font-ledger text-2xl text-gilt">
+            {asset.totalDonatedETH}{" "}
+            <span className="text-sm font-sans text-porcelain/60">ETH available</span>
+          </p>
+          <p className="font-ledger text-sm text-porcelain/60">
+            goal {asset.fundingGoalETH} ETH
+          </p>
         </div>
-        <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
-          <div
-            className="h-full rounded-full bg-waqf-500 transition-all duration-500"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
+        <ProgressBar value={progress} dark />
       </div>
 
       {/* Disburse form */}
-      <div className="border-b border-gray-100 p-5">
-        <h4 className="mb-3 text-sm font-semibold text-gray-800">Disburse Funds</h4>
+      <div className="border-b border-ink/10 p-6">
+        <h4 className="mb-4 font-display text-base font-semibold text-mihrab">
+          Disburse funds
+        </h4>
         <form onSubmit={handleDisburse} className="space-y-3">
           <input
             type="text"
             value={disburseTo}
             onChange={(e) => setDisburseTo(e.target.value)}
             placeholder="Recipient address (0x...)"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-waqf-500 focus:outline-none focus:ring-2 focus:ring-waqf-500/20"
+            aria-label="Recipient address"
+            className="field font-ledger"
           />
-          <div className="flex gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row">
             <input
               type="number"
               step="0.01"
@@ -227,53 +236,55 @@ function TrusteeAssetCard({ asset, onDisbursed }) {
               value={disburseAmount}
               onChange={(e) => setDisburseAmount(e.target.value)}
               placeholder="Amount (ETH)"
-              className="w-36 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-waqf-500 focus:outline-none focus:ring-2 focus:ring-waqf-500/20"
+              aria-label="Amount in ETH"
+              className="field font-ledger sm:w-44"
             />
             <input
               type="text"
               value={disbursePurpose}
               onChange={(e) => setDisbursePurpose(e.target.value)}
               placeholder="Purpose (e.g. school supplies)"
-              className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-waqf-500 focus:outline-none focus:ring-2 focus:ring-waqf-500/20"
+              aria-label="Purpose"
+              className="field flex-1"
             />
           </div>
           {error && (
             <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>
           )}
           {success && (
-            <p className="rounded-lg bg-waqf-50 px-3 py-2 text-sm text-waqf-700">{success}</p>
+            <p className="flex items-center gap-2 rounded-lg bg-gilt-pale px-3 py-2 text-sm text-ink">
+              <KhatamStar className="h-3.5 w-3.5 shrink-0 text-gilt" />
+              {success}
+            </p>
           )}
-          <button
-            type="submit"
-            disabled={submitting}
-            className="rounded-lg bg-waqf-600 px-4 py-2 text-sm font-semibold text-white hover:bg-waqf-700 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {submitting ? "Processing..." : "Disburse Funds"}
+          <button type="submit" disabled={submitting} className="btn-primary">
+            {submitting ? "Processing..." : "Disburse funds"}
           </button>
         </form>
       </div>
 
       {/* Disbursement history */}
-      <div className="p-5">
-        <h4 className="mb-3 text-sm font-semibold text-gray-800">Disbursement History</h4>
+      <div className="p-6">
+        <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-ink-soft">
+          Disbursement history
+        </h4>
         {history.length === 0 ? (
-          <p className="text-sm text-gray-400">No disbursements yet.</p>
+          <p className="text-sm text-ink-soft/70">No disbursements yet.</p>
         ) : (
-          <ul className="space-y-2">
+          <ul className="divide-y divide-ink/10">
             {history.map((d, i) => (
-              <li
-                key={i}
-                className="flex items-start justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm"
-              >
-                <div>
-                  <p className="font-medium text-gray-800">{d.purpose}</p>
-                  <p className="text-xs text-gray-400">
+              <li key={i} className="flex items-center justify-between gap-4 py-2.5">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-ink">{d.purpose}</p>
+                  <p className="font-ledger text-xs text-ink-soft">
                     to {d.to.slice(0, 6)}...{d.to.slice(-4)}
                   </p>
                 </div>
-                <div className="text-right">
-                  <p className="font-medium text-gray-800">{d.amountETH} ETH</p>
-                  <p className="text-xs text-gray-400">
+                <div className="shrink-0 text-right">
+                  <p className="font-ledger text-sm font-medium text-mihrab">
+                    {d.amountETH} ETH
+                  </p>
+                  <p className="text-xs text-ink-soft">
                     {new Date(d.timestamp).toLocaleString()}
                   </p>
                 </div>
@@ -282,6 +293,6 @@ function TrusteeAssetCard({ asset, onDisbursed }) {
           </ul>
         )}
       </div>
-    </div>
+    </article>
   );
 }

@@ -1,5 +1,7 @@
 import { useState } from "react";
 import DonateModal from "./DonateModal";
+import FundingSeal from "./FundingSeal";
+import CategoryChip from "./CategoryChip";
 
 export default function DonorCard({ asset, onDonationSuccess }) {
   const [showModal, setShowModal] = useState(false);
@@ -10,52 +12,41 @@ export default function DonorCard({ asset, onDonationSuccess }) {
 
   return (
     <>
-      <div className="flex flex-col rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:shadow-md">
+      <article className="flex h-full flex-col rounded-2xl border border-ink/10 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
         {/* Header */}
-        <div className="mb-3 flex items-start justify-between">
-          <h3 className="text-lg font-semibold text-gray-900">{asset.name}</h3>
-          <span className="rounded-full bg-waqf-100 px-2.5 py-0.5 text-xs font-medium text-waqf-800">
-            {asset.beneficiaryCategory}
-          </span>
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <h3 className="font-display text-lg font-semibold leading-snug text-mihrab">
+            {asset.name}
+          </h3>
+          <CategoryChip>{asset.beneficiaryCategory}</CategoryChip>
         </div>
 
         {/* Description */}
         {asset.description && (
-          <p className="mb-4 text-sm text-gray-500">{asset.description}</p>
+          <p className="mb-5 text-sm leading-relaxed text-ink-soft">
+            {asset.description}
+          </p>
         )}
 
-        {/* Funding stats */}
-        <div className="mb-2 flex items-baseline justify-between text-sm">
-          <span className="font-medium text-gray-700">
-            {asset.totalDonatedETH} ETH{" "}
-            <span className="font-normal text-gray-400">raised</span>
-          </span>
-          <span className="text-gray-400">
-            goal: {asset.fundingGoalETH} ETH
-          </span>
+        {/* Funding seal + figures */}
+        <div className="mb-5 flex items-center gap-4">
+          <FundingSeal progress={progress} className="h-14 w-14 shrink-0 text-mihrab" />
+          <div className="min-w-0">
+            <p className="font-ledger text-lg leading-tight text-ink">
+              {asset.totalDonatedETH}{" "}
+              <span className="text-xs text-ink-soft">ETH raised</span>
+            </p>
+            <p className="mt-1 font-ledger text-xs text-ink-soft">
+              goal {asset.fundingGoalETH} ETH · {progress.toFixed(1)}% funded
+            </p>
+          </div>
         </div>
-
-        {/* Progress bar */}
-        <div className="mb-4 h-2.5 w-full overflow-hidden rounded-full bg-gray-100">
-          <div
-            className="h-full rounded-full bg-waqf-500 transition-all duration-500"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-
-        {/* Percentage label */}
-        <p className="mb-4 text-xs text-gray-400">
-          {progress.toFixed(1)}% funded
-        </p>
 
         {/* Donate button */}
-        <button
-          onClick={() => setShowModal(true)}
-          className="mt-auto w-full rounded-lg bg-waqf-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-waqf-700 active:scale-[0.98]"
-        >
+        <button onClick={() => setShowModal(true)} className="btn-primary mt-auto w-full">
           Donate
         </button>
-      </div>
+      </article>
 
       {showModal && (
         <DonateModal

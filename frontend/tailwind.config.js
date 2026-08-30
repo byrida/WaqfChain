@@ -7,18 +7,25 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        waqf: {
-          50: "#f0fdf4",
-          100: "#dcfce7",
-          200: "#bbf7d0",
-          300: "#86efac",
-          400: "#4ade80",
-          500: "#22c55e",
-          600: "#16a34a",
-          700: "#15803d",
-          800: "#166534",
-          900: "#14532d",
+        mihrab: { DEFAULT: "#0E3B2E", deep: "#092720", soft: "#155241" },
+        zellige: { DEFAULT: "#1C7A5F", deep: "#14604B" },
+        gilt: { DEFAULT: "#C9A227", soft: "#E9D48A", pale: "#F7EFD9" },
+        porcelain: "#F4F6F1",
+        ink: { DEFAULT: "#14231D", soft: "#44584E" },
+      },
+      fontFamily: {
+        display: ['"Reem Kufi"', "ui-sans-serif", "system-ui", "sans-serif"],
+        sans: ['"Instrument Sans"', "ui-sans-serif", "system-ui", "sans-serif"],
+        ledger: ['"Spline Sans Mono"', "ui-monospace", "SFMono-Regular", "monospace"],
+      },
+      keyframes: {
+        rise: {
+          from: { opacity: "0", transform: "translateY(10px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
         },
+      },
+      animation: {
+        rise: "rise 0.5s ease-out both",
       },
     },
   },

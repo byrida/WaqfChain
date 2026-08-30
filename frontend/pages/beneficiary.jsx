@@ -1,4 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
+import Layout from "../components/Layout";
+import KhatamStar from "../components/KhatamStar";
+import ProgressBar from "../components/ProgressBar";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
@@ -54,29 +57,19 @@ export default function BeneficiaryPortal() {
   const categories = Object.keys(grouped).sort();
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="border-b border-gray-200 bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">WaqfChain</h1>
-            <p className="text-sm text-gray-500">Beneficiary Portal</p>
-          </div>
-          <nav className="flex gap-4 text-sm">
-            <a href="/" className="text-gray-500 hover:text-gray-800">Home</a>
-            <a href="/donor" className="text-gray-500 hover:text-gray-800">Donor</a>
-            <a href="/trustee" className="text-gray-500 hover:text-gray-800">Trustee</a>
-            <a href="/beneficiary" className="font-medium text-waqf-700 underline underline-offset-4">Beneficiary</a>
-          </nav>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-6xl px-6 py-8">
-        {/* Intro */}
-        <div className="mb-8">
-          <h2 className="text-lg font-semibold text-gray-800">Fund Transparency</h2>
-          <p className="text-sm text-gray-500">
-            See how Waqf endowment funds are being raised and spent, grouped by beneficiary category.
+    <Layout>
+      <div className="mx-auto w-full max-w-6xl px-6 py-10">
+        {/* Masthead */}
+        <div className="mb-10">
+          <p className="text-xs font-semibold uppercase tracking-wider text-zellige">
+            Beneficiary portal
+          </p>
+          <h1 className="mt-1 font-display text-3xl font-semibold text-mihrab">
+            Fund transparency
+          </h1>
+          <p className="mt-2 max-w-lg text-sm text-ink-soft">
+            See how waqf endowment funds are being raised and spent, grouped by
+            beneficiary category.
           </p>
         </div>
 
@@ -84,28 +77,31 @@ export default function BeneficiaryPortal() {
         {error && (
           <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             <span className="font-medium">Error:</span> {error}
-            <button onClick={fetchData} className="ml-3 underline hover:no-underline">Retry</button>
+            <button onClick={fetchData} className="ml-3 underline hover:no-underline">
+              Retry
+            </button>
           </div>
         )}
 
         {/* Loading */}
         {loading && (
-          <div className="py-20 text-center text-gray-400">
-            <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-waqf-500" />
+          <div className="py-24 text-center text-ink-soft">
+            <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-mihrab/10 border-t-zellige" />
             Loading data...
           </div>
         )}
 
         {/* Empty */}
         {!loading && categories.length === 0 && (
-          <div className="py-20 text-center">
-            <p className="text-lg text-gray-500">No Waqf assets registered yet.</p>
+          <div className="py-24 text-center">
+            <KhatamStar className="mx-auto mb-4 h-10 w-10 text-mihrab/25" />
+            <p className="text-lg font-medium text-mihrab">No waqf assets registered yet.</p>
           </div>
         )}
 
         {/* Grouped categories */}
         {!loading && categories.length > 0 && (
-          <div className="space-y-10">
+          <div className="space-y-12">
             {categories.map((category) => (
               <CategorySection
                 key={category}
@@ -116,8 +112,8 @@ export default function BeneficiaryPortal() {
             ))}
           </div>
         )}
-      </main>
-    </div>
+      </div>
+    </Layout>
   );
 }
 
@@ -127,82 +123,99 @@ function CategorySection({ category, assets, historyMap }) {
   // Prettify category name
   const label = category.charAt(0).toUpperCase() + category.slice(1).replace(/_/g, " ");
 
+  const totalRaised = assets.reduce(
+    (sum, a) => sum + (parseFloat(a.totalDonatedETH) || 0),
+    0
+  );
+  const totalDisbursed = Object.values(historyMap)
+    .flat()
+    .filter((d) => assets.some((a) => a.id === d.assetId))
+    .reduce((sum, d) => sum + (parseFloat(d.amountETH) || 0), 0);
+
   return (
     <section>
-      <div className="mb-4 flex items-center gap-3">
-        <span className="inline-flex items-center rounded-full bg-waqf-100 px-3 py-1 text-sm font-semibold text-waqf-800">
-          {label}
-        </span>
-        <span className="text-xs text-gray-400">{assets.length} asset{assets.length !== 1 && "s"}</span>
+      {/* Category masthead */}
+      <div className="mb-5 flex flex-wrap items-baseline justify-between gap-3 border-b border-ink/10 pb-3">
+        <div className="flex items-baseline gap-3">
+          <h2 className="font-display text-xl font-semibold text-mihrab">{label}</h2>
+          <span className="text-xs text-ink-soft">
+            {assets.length} asset{assets.length !== 1 && "s"}
+          </span>
+        </div>
+        <p className="font-ledger text-xs text-ink-soft">
+          raised <span className="text-ink">{totalRaised.toFixed(2)}</span> · disbursed{" "}
+          <span className="text-zellige-deep">{totalDisbursed.toFixed(2)}</span> ETH
+        </p>
       </div>
 
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {assets.map((asset) => {
+        {assets.map((asset, i) => {
           const history = historyMap[asset.id] || [];
-          const totalDisbursed = history.reduce(
-            (sum, d) => sum + parseFloat(d.amountETH),
+          const disbursed = history.reduce(
+            (sum, d) => sum + (parseFloat(d.amountETH) || 0),
             0
           );
+          const goal = parseFloat(asset.fundingGoalETH);
+          const donated = parseFloat(asset.totalDonatedETH);
+          const progress = goal > 0 ? Math.min((donated / goal) * 100, 100) : 0;
 
           return (
-            <div
+            <article
               key={asset.id}
-              className="flex flex-col rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"
+              className="flex flex-col rounded-2xl border border-ink/10 bg-white p-5 shadow-sm motion-safe:animate-rise"
+              style={{ animationDelay: `${Math.min(i, 8) * 60}ms` }}
             >
-              {/* Asset name + goal */}
-              <h3 className="mb-1 text-base font-semibold text-gray-900">{asset.name}</h3>
+              {/* Asset name */}
+              <h3 className="font-display text-base font-semibold leading-snug text-mihrab">
+                {asset.name}
+              </h3>
               {asset.description && (
-                <p className="mb-3 text-xs text-gray-500">{asset.description}</p>
+                <p className="mb-4 mt-1 text-xs leading-relaxed text-ink-soft">
+                  {asset.description}
+                </p>
               )}
 
               {/* Funding summary */}
-              <div className="mb-4 space-y-1 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Total raised</span>
-                  <span className="font-medium text-gray-800">{asset.totalDonatedETH} ETH</span>
+              <dl className="mb-4 mt-2 space-y-1.5 text-sm">
+                <div className="flex justify-between gap-3">
+                  <dt className="text-ink-soft">Raised</dt>
+                  <dd className="font-ledger font-medium text-ink">
+                    {asset.totalDonatedETH} ETH
+                  </dd>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Total disbursed</span>
-                  <span className="font-medium text-waqf-700">{totalDisbursed.toFixed(4)} ETH</span>
+                <div className="flex justify-between gap-3">
+                  <dt className="text-ink-soft">Disbursed</dt>
+                  <dd className="font-ledger font-medium text-zellige-deep">
+                    {disbursed.toFixed(4)} ETH
+                  </dd>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Funding goal</span>
-                  <span className="text-gray-400">{asset.fundingGoalETH} ETH</span>
+                <div className="flex justify-between gap-3">
+                  <dt className="text-ink-soft">Funding goal</dt>
+                  <dd className="font-ledger text-ink-soft">
+                    {asset.fundingGoalETH} ETH
+                  </dd>
                 </div>
-              </div>
+              </dl>
 
               {/* Progress bar */}
-              <div className="mb-4 h-2 w-full overflow-hidden rounded-full bg-gray-100">
-                <div
-                  className="h-full rounded-full bg-waqf-500 transition-all duration-500"
-                  style={{
-                    width: `${parseFloat(asset.fundingGoalETH) > 0
-                      ? Math.min(
-                          (parseFloat(asset.totalDonatedETH) / parseFloat(asset.fundingGoalETH)) * 100,
-                          100
-                        )
-                      : 0
-                    }%`,
-                  }}
-                />
-              </div>
+              <ProgressBar value={progress} className="mb-5" />
 
               {/* Disbursement history */}
               <div className="mt-auto">
-                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                  Fund Usage
+                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-soft">
+                  Fund usage
                 </h4>
                 {history.length === 0 ? (
-                  <p className="text-xs text-gray-400">No disbursements yet.</p>
+                  <p className="text-xs text-ink-soft/70">No disbursements yet.</p>
                 ) : (
                   <ul className="space-y-1.5">
-                    {history.map((d, i) => (
+                    {history.map((d, j) => (
                       <li
-                        key={i}
-                        className="flex items-start justify-between rounded-lg bg-gray-50 px-2.5 py-1.5 text-xs"
+                        key={j}
+                        className="flex items-start justify-between gap-2 rounded-lg bg-porcelain px-2.5 py-1.5 text-xs"
                       >
-                        <span className="text-gray-700">{d.purpose}</span>
-                        <span className="ml-2 shrink-0 font-medium text-gray-800">
+                        <span className="text-ink">{d.purpose}</span>
+                        <span className="ml-2 shrink-0 font-ledger font-medium text-mihrab">
                           {d.amountETH} ETH
                         </span>
                       </li>
@@ -210,7 +223,7 @@ function CategorySection({ category, assets, historyMap }) {
                   </ul>
                 )}
               </div>
-            </div>
+            </article>
           );
         })}
       </div>
