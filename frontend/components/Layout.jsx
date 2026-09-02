@@ -7,6 +7,7 @@ const NAV = [
   { href: "/donor", label: "Donor" },
   { href: "/trustee", label: "Trustee" },
   { href: "/beneficiary", label: "Beneficiary" },
+  { href: "/shariah", label: "Shariah" },
 ];
 
 export default function Layout({ children }) {

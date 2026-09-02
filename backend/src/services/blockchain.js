@@ -90,6 +90,64 @@ async function getDonation(assetId, donorAddress) {
   return { assetId, donor: donorAddress, amount: amount.toString(), amountETH: ethers.formatEther(amount) };
 }
 
+/**
+ * Reads the full on-chain event history for a given asset — AssetCreated,
+ * DonationReceived, and FundsDisbursed — via queryFilter, with block timestamps.
+ * Returned in chronological order for AI reporting and auditing.
+ */
+async function getAssetEvents(assetId) {
+  const id = Number(assetId);
+
+  const [createdLogs, donationLogs, disbursedLogs] = await Promise.all([
+    contract.queryFilter(contract.filters.AssetCreated(id), 0),
+    contract.queryFilter(contract.filters.DonationReceived(id), 0),
+    contract.queryFilter(contract.filters.FundsDisbursed(id), 0),
+  ]);
+
+  // Fetch timestamps for every unique block involved (parallel)
+  const blockNumbers = [
+    ...new Set(
+      [...createdLogs, ...donationLogs, ...disbursedLogs].map((log) => log.blockNumber)
+    ),
+  ];
+  const blocks = await Promise.all(blockNumbers.map((bn) => provider.getBlock(bn)));
+  const timestampMap = {};
+  blocks.forEach((block) => {
+    if (block) {
+      timestampMap[block.number] = new Date(Number(block.timestamp) * 1000).toISOString();
+    }
+  });
+
+  const events = [
+    ...createdLogs.map((log) => ({
+      blockNumber: log.blockNumber,
+      type: "AssetCreated",
+      name: log.args.name,
+      beneficiaryCategory: log.args.beneficiaryCategory,
+      trustee: log.args.trustee,
+      fundingGoalETH: ethers.formatEther(log.args.fundingGoal),
+    })),
+    ...donationLogs.map((log) => ({
+      blockNumber: log.blockNumber,
+      type: "DonationReceived",
+      donor: log.args.donor,
+      amountETH: ethers.formatEther(log.args.amount),
+    })),
+    ...disbursedLogs.map((log) => ({
+      blockNumber: log.blockNumber,
+      type: "FundsDisbursed",
+      to: log.args.to,
+      amountETH: ethers.formatEther(log.args.amount),
+      purpose: log.args.purpose,
+    })),
+  ]
+    .map((event) => ({ ...event, timestamp: timestampMap[event.blockNumber] || null }))
+    .sort((a, b) => a.blockNumber - b.blockNumber)
+    .map(({ blockNumber, ...event }) => event);
+
+  return events;
+}
+
 // ─── Contract Writes ───────────────────────────────────────────────────────────────
 
 async function createAsset({ name, description, beneficiaryCategory, trustee, fundingGoalETH }) {
@@ -159,6 +217,7 @@ module.exports = {
   getAsset,
   listAssets,
   getDonation,
+  getAssetEvents,
   getDisbursementHistory,
   createAsset,
   donate,

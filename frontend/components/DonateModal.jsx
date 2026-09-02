@@ -3,22 +3,47 @@ import KhatamStar from "./KhatamStar";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
-const QUICK_AMOUNTS = ["0.1", "0.25", "0.5", "1"];
+const QUICK_ETH = ["0.1", "0.25", "0.5", "1"];
+const QUICK_PKR = [500, 1000, 2500, 5000];
+
+// Demo conversion rate — this is a sandbox flow, not a real exchange rate.
+const PKR_PER_ETH = 350000;
+
+function pkrToEth(pkr) {
+  return (pkr / PKR_PER_ETH).toFixed(6);
+}
+
+function maskPhone(phone) {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length < 4) return digits;
+  return `•••• ••${digits.slice(-2)}`;
+}
 
 export default function DonateModal({ asset, onClose, onSuccess }) {
+  // step: "choose" | "wallet" | "mobile" | "processing" | "success"
+  const [step, setStep] = useState("choose");
+
+  // wallet flow (existing)
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // mobile money flow (JazzCash / Easypaisa)
+  const [phone, setPhone] = useState("");
+  const [pkrAmount, setPkrAmount] = useState("");
+  const [receipt, setReceipt] = useState(null);
+
   useEffect(() => {
     function onKey(e) {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape" && step !== "processing") onClose();
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [onClose, step]);
 
-  async function handleDonate(e) {
+  // ─── Existing wallet flow (unchanged behaviour) ────────────────────────────
+
+  async function handleWalletDonate(e) {
     e.preventDefault();
     setError(null);
 
@@ -47,11 +72,75 @@ export default function DonateModal({ asset, onClose, onSuccess }) {
     }
   }
 
+  // ─── Simulated JazzCash / Easypaisa flow ──────────────────────────────────
+
+  function validateMobileForm() {
+    const digits = phone.replace(/\D/g, "");
+    if (!/^03\d{9}$/.test(digits)) {
+      return "Enter a valid Pakistani mobile number (03XX XXXXXXX)";
+    }
+    const pkr = parseFloat(pkrAmount);
+    if (!pkr || pkr <= 0) {
+      return "Enter an amount in PKR greater than 0";
+    }
+    return null;
+  }
+
+  async function handleMobileConfirm(e) {
+    e.preventDefault();
+    setError(null);
+
+    const validation = validateMobileForm();
+    if (validation) {
+      setError(validation);
+      return;
+    }
+
+    const pkr = parseFloat(pkrAmount);
+    const amountETH = pkrToEth(pkr);
+
+    setStep("processing");
+
+    // Simulate the mobile payment gateway round-trip...
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+
+    // ...then actually record the donation on-chain via our backend,
+    // using the platform wallet so the donor needs no crypto wallet.
+    try {
+      const res = await fetch(`${API_URL}/api/donations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assetId: asset.id, amountETH }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Payment failed");
+
+      setReceipt({
+        pkr,
+        amountETH,
+        phone: phone.replace(/\D/g, ""),
+        txHash: data.txHash,
+        asset: data.asset,
+      });
+      setStep("success");
+    } catch (err) {
+      setError(err.message);
+      setStep("mobile");
+    }
+  }
+
+  function handleDone() {
+    onSuccess(receipt.asset);
+  }
+
+  // ─── Render ────────────────────────────────────────────────────────────────
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-mihrab-deep/70 p-4"
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget && step !== "processing") onClose();
       }}
     >
       <div
@@ -66,82 +155,324 @@ export default function DonateModal({ asset, onClose, onSuccess }) {
             <KhatamStar className="h-6 w-6 shrink-0 text-gilt" />
             <div>
               <h2 className="font-display text-lg font-semibold leading-snug">
-                Donate to {asset.name}
+                {step === "success" ? "Payment successful" : `Donate to ${asset.name}`}
               </h2>
               <p className="mt-0.5 text-xs text-porcelain/65">
-                {asset.beneficiaryCategory}
+                {step === "success" ? "Recorded on-chain" : asset.beneficiaryCategory}
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            className="rounded-full p-1 text-porcelain/60 transition hover:bg-white/10 hover:text-porcelain"
-          >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          {step !== "processing" && (
+            <button
+              onClick={onClose}
+              aria-label="Close"
+              className="rounded-full p-1 text-porcelain/60 transition hover:bg-white/10 hover:text-porcelain"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
         </div>
 
         <div className="p-6">
-          {/* Current funding */}
-          <div className="mb-5 rounded-lg bg-porcelain px-4 py-3 text-sm">
-            <span className="text-ink-soft">Raised so far: </span>
-            <span className="font-ledger font-medium text-ink">
-              {asset.totalDonatedETH} / {asset.fundingGoalETH} ETH
-            </span>
-          </div>
-
-          <form onSubmit={handleDonate}>
-            <label htmlFor="donation-amount" className="mb-1.5 block text-sm font-medium text-ink">
-              Amount (ETH)
-            </label>
-            <input
-              id="donation-amount"
-              type="number"
-              step="0.01"
-              min="0"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="e.g. 1.5"
-              className="field mb-3 font-ledger"
-              autoFocus
-            />
-
-            {/* Quick amounts */}
-            <div className="mb-5 flex flex-wrap gap-2">
-              {QUICK_AMOUNTS.map((quick) => (
+          {/* ── Step: choose payment method ── */}
+          {step === "choose" && (
+            <div>
+              <p className="mb-4 text-sm font-medium text-ink">Choose a payment method</p>
+              <div className="space-y-3">
+                {/* Mobile money */}
                 <button
-                  key={quick}
                   type="button"
-                  onClick={() => setAmount(quick)}
-                  className={`rounded-full border px-3 py-1 font-ledger text-xs transition ${
-                    amount === quick
-                      ? "border-zellige bg-zellige text-white"
-                      : "border-ink/15 text-ink-soft hover:border-zellige hover:text-zellige-deep"
-                  }`}
+                  onClick={() => {
+                    setError(null);
+                    setStep("mobile");
+                  }}
+                  className="flex w-full items-center gap-4 rounded-xl border border-ink/10 bg-white p-4 text-left transition hover:border-zellige/40 hover:bg-porcelain"
                 >
-                  {quick} ETH
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#E10E49]/10">
+                    <svg className="h-5 w-5 text-[#E10E49]" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
+                    </svg>
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold text-ink">
+                      Pay with JazzCash / Easypaisa
+                    </span>
+                    <span className="mt-0.5 block text-xs text-ink-soft">
+                      Donate from your mobile wallet in PKR
+                    </span>
+                    <span className="mt-2 flex flex-wrap gap-1.5">
+                      <span className="rounded-full bg-[#E10E49]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#E10E49]">
+                        JazzCash
+                      </span>
+                      <span className="rounded-full bg-[#57BB4C]/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#4A9E3F]">
+                        Easypaisa
+                      </span>
+                    </span>
+                  </span>
+                  <svg className="h-4 w-4 shrink-0 text-ink/30" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                  </svg>
                 </button>
-              ))}
-            </div>
 
-            {error && (
-              <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
-                {error}
+                {/* Crypto wallet */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setError(null);
+                    setStep("wallet");
+                  }}
+                  className="flex w-full items-center gap-4 rounded-xl border border-ink/10 bg-white p-4 text-left transition hover:border-zellige/40 hover:bg-porcelain"
+                >
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-zellige/10">
+                    <svg className="h-5 w-5 text-zellige" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3" />
+                    </svg>
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold text-ink">
+                      Pay with Wallet (MetaMask)
+                    </span>
+                    <span className="mt-0.5 block text-xs text-ink-soft">
+                      Donate directly in ETH from your crypto wallet
+                    </span>
+                  </span>
+                  <svg className="h-4 w-4 shrink-0 text-ink/30" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="mt-5 rounded-lg bg-porcelain px-4 py-3 text-sm">
+                <span className="text-ink-soft">Raised so far: </span>
+                <span className="font-ledger font-medium text-ink">
+                  {asset.totalDonatedETH} / {asset.fundingGoalETH} ETH
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* ── Step: wallet checkout (existing flow) ── */}
+          {step === "wallet" && (
+            <form onSubmit={handleWalletDonate}>
+              <button
+                type="button"
+                onClick={() => setStep("choose")}
+                className="mb-4 text-xs font-medium text-zellige transition hover:text-zellige-deep"
+              >
+                ← Change payment method
+              </button>
+
+              <label htmlFor="donation-amount" className="mb-1.5 block text-sm font-medium text-ink">
+                Amount (ETH)
+              </label>
+              <input
+                id="donation-amount"
+                type="number"
+                step="0.01"
+                min="0"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="e.g. 1.5"
+                className="field mb-3 font-ledger"
+                autoFocus
+              />
+
+              <div className="mb-5 flex flex-wrap gap-2">
+                {QUICK_ETH.map((quick) => (
+                  <button
+                    key={quick}
+                    type="button"
+                    onClick={() => setAmount(quick)}
+                    className={`rounded-full border px-3 py-1 font-ledger text-xs transition ${
+                      amount === quick
+                        ? "border-zellige bg-zellige text-white"
+                        : "border-ink/15 text-ink-soft hover:border-zellige hover:text-zellige-deep"
+                    }`}
+                  >
+                    {quick} ETH
+                  </button>
+                ))}
+              </div>
+
+              {error && (
+                <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+                  {error}
+                </p>
+              )}
+
+              <div className="flex gap-3">
+                <button type="button" onClick={onClose} className="btn-ghost flex-1">
+                  Cancel
+                </button>
+                <button type="submit" disabled={loading} className="btn-primary flex-1">
+                  {loading ? "Processing..." : "Confirm donation"}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* ── Step: simulated JazzCash / Easypaisa checkout ── */}
+          {step === "mobile" && (
+            <form onSubmit={handleMobileConfirm}>
+              <button
+                type="button"
+                onClick={() => setStep("choose")}
+                className="mb-4 text-xs font-medium text-zellige transition hover:text-zellige-deep"
+              >
+                ← Change payment method
+              </button>
+
+              {/* Checkout strip */}
+              <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-ink/10 bg-porcelain px-4 py-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-ink-soft">
+                    Secure checkout
+                  </p>
+                  <p className="mt-0.5 font-ledger text-sm text-ink">
+                    {asset.name}
+                  </p>
+                </div>
+                <div className="flex flex-col items-end gap-1">
+                  <span className="rounded-full bg-[#E10E49] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+                    JazzCash
+                  </span>
+                  <span className="rounded-full bg-[#57BB4C] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+                    Easypaisa
+                  </span>
+                </div>
+              </div>
+
+              <label htmlFor="mobile-phone" className="mb-1.5 block text-sm font-medium text-ink">
+                Mobile number
+              </label>
+              <input
+                id="mobile-phone"
+                type="tel"
+                inputMode="numeric"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="03XX XXXXXXX"
+                className="field mb-3 font-ledger"
+                autoFocus
+              />
+
+              <label htmlFor="mobile-amount" className="mb-1.5 block text-sm font-medium text-ink">
+                Amount (PKR)
+              </label>
+              <input
+                id="mobile-amount"
+                type="number"
+                inputMode="numeric"
+                min="0"
+                value={pkrAmount}
+                onChange={(e) => setPkrAmount(e.target.value)}
+                placeholder="e.g. 2,500"
+                className="field font-ledger"
+              />
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                {QUICK_PKR.map((quick) => (
+                  <button
+                    key={quick}
+                    type="button"
+                    onClick={() => setPkrAmount(String(quick))}
+                    className={`rounded-full border px-3 py-1 font-ledger text-xs transition ${
+                      pkrAmount === String(quick)
+                        ? "border-[#4A9E3F] bg-[#57BB4C] text-white"
+                        : "border-ink/15 text-ink-soft hover:border-[#57BB4C] hover:text-[#4A9E3F]"
+                    }`}
+                  >
+                    ₨{quick.toLocaleString()}
+                  </button>
+                ))}
+              </div>
+
+              {parseFloat(pkrAmount) > 0 && (
+                <p className="mt-3 rounded-lg bg-porcelain px-3 py-2 text-xs text-ink-soft">
+                  You are donating{" "}
+                  <span className="font-ledger font-medium text-ink">
+                    {pkrToEth(parseFloat(pkrAmount))} ETH
+                  </span>{" "}
+                  <span className="text-ink/50">
+                    (demo rate: 1 ETH = ₨{PKR_PER_ETH.toLocaleString()})
+                  </span>
+                </p>
+              )}
+
+              {/* Sandbox notice */}
+              <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">
+                <span className="font-semibold">Demo / sandbox mode.</span> This is a
+                simulated payment flow and is not connected to real JazzCash or
+                Easypaisa APIs. Your donation is recorded on-chain using the
+                WaqfChain platform wallet.
               </p>
-            )}
 
-            <div className="flex gap-3">
-              <button type="button" onClick={onClose} className="btn-ghost flex-1">
-                Cancel
+              {error && (
+                <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+                  {error}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                className="mt-5 inline-flex w-full items-center justify-center rounded-lg bg-[#4A9E3F] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#57BB4C] active:scale-[0.98]"
+              >
+                Confirm payment
               </button>
-              <button type="submit" disabled={loading} className="btn-primary flex-1">
-                {loading ? "Processing..." : "Confirm donation"}
+            </form>
+          )}
+
+          {/* ── Step: processing ── */}
+          {step === "processing" && (
+            <div className="py-12 text-center">
+              <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-ink/10 border-t-[#4A9E3F]" />
+              <p className="text-sm font-semibold text-ink">Processing payment...</p>
+              <p className="mt-1 text-xs text-ink-soft">
+                Confirming with your mobile wallet and recording the donation on-chain
+              </p>
+            </div>
+          )}
+
+          {/* ── Step: success ── */}
+          {step === "success" && receipt && (
+            <div className="py-4 text-center">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#57BB4C]/15">
+                <svg className="h-7 w-7 text-[#4A9E3F]" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                </svg>
+              </div>
+
+              <p className="font-display text-xl font-semibold text-mihrab">
+                ₨{receipt.pkr.toLocaleString()} received
+              </p>
+              <p className="mt-1 text-sm text-ink-soft">
+                {receipt.amountETH} ETH donated to {asset.name}
+              </p>
+
+              <div className="mt-5 space-y-1.5 rounded-xl bg-porcelain px-4 py-3 text-left font-ledger text-xs text-ink-soft">
+                <p className="flex justify-between gap-4">
+                  <span>Mobile account</span>
+                  <span className="text-ink">{maskPhone(receipt.phone)}</span>
+                </p>
+                <p className="flex justify-between gap-4">
+                  <span>On-chain tx</span>
+                  <span className="truncate text-ink">
+                    {receipt.txHash ? `${receipt.txHash.slice(0, 8)}...${receipt.txHash.slice(-6)}` : "confirmed"}
+                  </span>
+                </p>
+                <p className="flex justify-between gap-4">
+                  <span>New total raised</span>
+                  <span className="text-ink">{receipt.asset.totalDonatedETH} ETH</span>
+                </p>
+              </div>
+
+              <button type="button" onClick={handleDone} className="btn-primary mt-5 w-full">
+                Done
               </button>
             </div>
-          </form>
+          )}
         </div>
       </div>
     </div>
