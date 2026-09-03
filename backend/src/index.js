@@ -1,7 +1,8 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-const { startEventListener } = require("./services/blockchain");
+const { startEventListener, loadHistoryFromEvents, getNextAssetId, contract, provider } = require("./services/blockchain");
+const { seedData } = require("./services/seed");
 
 const assetsRouter = require("./routes/assets");
 const donationsRouter = require("./routes/donations");
@@ -25,7 +26,7 @@ app.get("/api/health", (req, res) => {
 });
 
 // ─── Start Server ──────────────────────────────────────────────────────────────
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`\nWaqfChain backend running on http://localhost:${PORT}\n`);
   console.log("Routes:");
   console.log("  POST   /api/assets          — create a new Waqf asset");
@@ -38,4 +39,26 @@ app.listen(PORT, () => {
 
   // Start listening for on-chain events
   startEventListener();
+
+  // Auto-seed if no assets exist (for fresh local node)
+  try {
+    const assetCount = await getNextAssetId();
+    if (assetCount === 0) {
+      console.log("[Auto-seed] No assets found on-chain — seeding demo data...\n");
+      await seedData(contract, provider);
+      // After seeding, load history from events (seeded disbursements)
+      await loadHistoryFromEvents();
+    } else {
+      console.log(`[Auto-seed] Found ${assetCount} asset(s) on-chain — skipping seed.`);
+      // Load past disbursement history from blockchain events
+      await loadHistoryFromEvents();
+    }
+  } catch (err) {
+    console.warn(
+      "[Auto-seed] Could not check on-chain assets. Is the Hardhat node running?\n"
+    );
+    console.warn(
+      "  To seed manually: cd smart-contracts && npx hardhat run scripts/deploy.js\n"
+    );
+  }
 });

@@ -30,20 +30,26 @@ export default function DonorCard({ asset, onDonationSuccess }) {
 
         {/* Funding seal + figures */}
         <div className="mb-5 flex items-center gap-4">
-          <FundingSeal progress={progress} className="h-14 w-14 shrink-0 text-mihrab" />
+          <FundingSeal
+            progress={progress}
+            className="h-14 w-14 shrink-0 text-mihrab"
+          />
           <div className="min-w-0">
             <p className="font-ledger text-lg leading-tight text-ink">
               {asset.totalDonatedETH}{" "}
-              <span className="text-xs text-ink-soft">ETH raised</span>
+              <span className="text-xs text-ink-soft">ETH collected</span>
             </p>
             <p className="mt-1 font-ledger text-xs text-ink-soft">
-              goal {asset.fundingGoalETH} ETH · {progress.toFixed(1)}% funded
+              goal {asset.fundingGoalETH} ETH · {progress.toFixed(1)}% complete
             </p>
           </div>
         </div>
 
         {/* Donate button */}
-        <button onClick={() => setShowModal(true)} className="btn-primary mt-auto w-full">
+        <button
+          onClick={() => setShowModal(true)}
+          className="btn-primary mt-auto w-full"
+        >
           Donate
         </button>
       </article>

@@ -12,6 +12,11 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ error: "name, beneficiaryCategory, trustee, and fundingGoalETH are required" });
     }
 
+    const goal = parseFloat(fundingGoalETH);
+    if (isNaN(goal) || goal <= 0) {
+      return res.status(400).json({ error: "fundingGoalETH must be a number greater than 0" });
+    }
+
     const result = await bc.createAsset({ name, description: description || "", beneficiaryCategory, trustee, fundingGoalETH });
     const asset = await bc.getAsset(result.assetId);
 

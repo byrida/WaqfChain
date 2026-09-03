@@ -2,14 +2,17 @@ import { useState, useEffect, useCallback } from "react";
 import Layout from "../components/Layout";
 import DonorCard from "../components/DonorCard";
 import KhatamStar from "../components/KhatamStar";
+import useWallet from "../lib/useWallet";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 export default function DonorPortal() {
+  const { address, connecting, connect, hasMetaMask } = useWallet();
   const [assets, setAssets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
+  const [donations, setDonations] = useState({});
 
   const fetchAssets = useCallback(async () => {
     try {
@@ -25,12 +28,42 @@ export default function DonorPortal() {
     }
   }, []);
 
+  // Fetch connected wallet's donations across all assets
+  const fetchDonations = useCallback(async (assetList, walletAddress) => {
+    if (!walletAddress || assetList.length === 0) return;
+    const donationMap = {};
+    await Promise.all(
+      assetList.map(async (asset) => {
+        try {
+          const res = await fetch(
+            `${API_URL}/api/donations/${asset.id}/${walletAddress}`
+          );
+          const data = await res.json();
+          if (data.amountETH && parseFloat(data.amountETH) > 0) {
+            donationMap[asset.id] = data;
+          }
+        } catch {
+          // ignore
+        }
+      })
+    );
+    setDonations(donationMap);
+  }, []);
+
   useEffect(() => {
     fetchAssets();
   }, [fetchAssets]);
 
+  // Fetch donations when wallet connects or assets load
+  useEffect(() => {
+    if (address && assets.length > 0) {
+      fetchDonations(assets, address);
+    } else {
+      setDonations({});
+    }
+  }, [address, assets, fetchDonations]);
+
   function handleDonationSuccess(updatedAsset) {
-    // Update the specific asset in the list with fresh data
     setAssets((prev) =>
       prev.map((a) => (a.id === updatedAsset.id ? updatedAsset : a))
     );
@@ -38,7 +71,23 @@ export default function DonorPortal() {
       `Donation of ${updatedAsset.totalDonatedETH} ETH confirmed for "${updatedAsset.name}".`
     );
     setTimeout(() => setSuccessMessage(null), 4000);
+    // Refresh donation history after successful donation
+    if (address) {
+      fetchDonations(
+        assets.map((a) =>
+          a.id === updatedAsset.id ? updatedAsset : a
+        ),
+        address
+      );
+    }
   }
+
+  // Calculate totals for "Your Donations"
+  const donationEntries = Object.entries(donations);
+  const totalDonated = donationEntries.reduce(
+    (sum, [, d]) => sum + (parseFloat(d.amountETH) || 0),
+    0
+  );
 
   return (
     <Layout>
@@ -50,17 +99,81 @@ export default function DonorPortal() {
               Donor portal
             </p>
             <h1 className="mt-1 font-display text-3xl font-semibold text-mihrab">
-              Active waqf assets
+              Available waqf projects
             </h1>
             <p className="mt-2 max-w-lg text-sm text-ink-soft">
-              Every asset is a tokenized endowment — contribute to the corpus
-              and watch it grow.
+              Each project is a waqf endowment — donate and watch it grow.
             </p>
           </div>
-          <button onClick={fetchAssets} className="btn-ghost text-zellige-deep">
-            Refresh
-          </button>
+          <div className="flex items-center gap-3">
+            {hasMetaMask && !address && (
+              <button
+                onClick={connect}
+                disabled={connecting}
+                className="btn-primary text-sm"
+              >
+                {connecting ? "Connecting..." : "Connect wallet"}
+              </button>
+            )}
+            <button onClick={fetchAssets} className="btn-ghost text-zellige-deep">
+              Refresh
+            </button>
+          </div>
         </div>
+
+        {/* Connected wallet badge */}
+        {address && (
+          <div className="mb-5 flex items-center gap-2 rounded-lg border border-ink/10 bg-white px-4 py-2.5 shadow-sm text-xs text-ink-soft">
+            <span className="h-2 w-2 rounded-full bg-zellige" />
+            Connected:{" "}
+            <span className="font-ledger text-ink">
+              {address.slice(0, 6)}...{address.slice(-4)}
+            </span>
+          </div>
+        )}
+
+        {/* Your Donations section */}
+        {address && donationEntries.length > 0 && (
+          <div className="mb-8 rounded-2xl border border-ink/10 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex flex-wrap items-baseline justify-between gap-3">
+              <div>
+                <h2 className="font-display text-lg font-semibold text-mihrab">
+                  Your donations
+                </h2>
+                <p className="mt-0.5 text-xs text-ink-soft">
+                  Your giving history across all waqf projects
+                </p>
+              </div>
+              <p className="font-ledger text-xl font-semibold text-gilt">
+                {totalDonated.toFixed(4)}{" "}
+                <span className="text-xs font-sans text-ink-soft">ETH total</span>
+              </p>
+            </div>
+            <ul className="divide-y divide-ink/10">
+              {donationEntries.map(([assetId, d]) => {
+                const asset = assets.find((a) => a.id === Number(assetId));
+                return (
+                  <li
+                    key={assetId}
+                    className="flex items-center justify-between gap-4 py-2.5"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-ink">
+                        {asset ? asset.name : `Asset #${assetId}`}
+                      </p>
+                      <p className="text-xs text-ink-soft">
+                        {asset ? asset.beneficiaryCategory : ""}
+                      </p>
+                    </div>
+                    <p className="shrink-0 font-ledger text-sm font-medium text-mihrab">
+                      {d.amountETH} ETH
+                    </p>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
 
         {/* Success toast */}
         {successMessage && (
@@ -98,9 +211,11 @@ export default function DonorPortal() {
         {!loading && !error && assets.length === 0 && (
           <div className="py-24 text-center">
             <KhatamStar className="mx-auto mb-4 h-10 w-10 text-mihrab/25" />
-            <p className="text-lg font-medium text-mihrab">No waqf assets found.</p>
+            <p className="text-lg font-medium text-mihrab">
+              No waqf projects found.
+            </p>
             <p className="mt-1 text-sm text-ink-soft">
-              Assets will appear here once they are created on-chain.
+              Projects will appear here once they are created.
             </p>
           </div>
         )}

@@ -200,7 +200,7 @@ export default function DonateModal({ asset, onClose, onSuccess }) {
                       Pay with JazzCash / Easypaisa
                     </span>
                     <span className="mt-0.5 block text-xs text-ink-soft">
-                      Donate from your mobile wallet in PKR
+                      Pay in PKR from your mobile wallet
                     </span>
                     <span className="mt-2 flex flex-wrap gap-1.5">
                       <span className="rounded-full bg-[#E10E49]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#E10E49]">
@@ -235,7 +235,7 @@ export default function DonateModal({ asset, onClose, onSuccess }) {
                       Pay with Wallet (MetaMask)
                     </span>
                     <span className="mt-0.5 block text-xs text-ink-soft">
-                      Donate directly in ETH from your crypto wallet
+                      Pay in ETH using your crypto wallet
                     </span>
                   </span>
                   <svg className="h-4 w-4 shrink-0 text-ink/30" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" aria-hidden="true">
@@ -245,7 +245,7 @@ export default function DonateModal({ asset, onClose, onSuccess }) {
               </div>
 
               <div className="mt-5 rounded-lg bg-porcelain px-4 py-3 text-sm">
-                <span className="text-ink-soft">Raised so far: </span>
+                <span className="text-ink-soft">Collected so far: </span>
                 <span className="font-ledger font-medium text-ink">
                   {asset.totalDonatedETH} / {asset.fundingGoalETH} ETH
                 </span>
@@ -261,7 +261,7 @@ export default function DonateModal({ asset, onClose, onSuccess }) {
                 onClick={() => setStep("choose")}
                 className="mb-4 text-xs font-medium text-zellige transition hover:text-zellige-deep"
               >
-                ← Change payment method
+                ← Go back
               </button>
 
               <label htmlFor="donation-amount" className="mb-1.5 block text-sm font-medium text-ink">
@@ -321,7 +321,7 @@ export default function DonateModal({ asset, onClose, onSuccess }) {
                 onClick={() => setStep("choose")}
                 className="mb-4 text-xs font-medium text-zellige transition hover:text-zellige-deep"
               >
-                ← Change payment method
+                ← Go back
               </button>
 
               {/* Checkout strip */}
@@ -403,10 +403,10 @@ export default function DonateModal({ asset, onClose, onSuccess }) {
 
               {/* Sandbox notice */}
               <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">
-                <span className="font-semibold">Demo / sandbox mode.</span> This is a
-                simulated payment flow and is not connected to real JazzCash or
-                Easypaisa APIs. Your donation is recorded on-chain using the
-                WaqfChain platform wallet.
+                <span className="font-semibold">Demo mode.</span> This is a
+                test payment — not connected to real JazzCash or
+                Easypaisa. Your donation is still recorded on the blockchain
+                using the WaqfChain wallet.
               </p>
 
               {error && (
@@ -430,7 +430,7 @@ export default function DonateModal({ asset, onClose, onSuccess }) {
               <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-ink/10 border-t-[#4A9E3F]" />
               <p className="text-sm font-semibold text-ink">Processing payment...</p>
               <p className="mt-1 text-xs text-ink-soft">
-                Confirming with your mobile wallet and recording the donation on-chain
+                Confirming your payment and recording the donation on the blockchain
               </p>
             </div>
           )}
@@ -448,7 +448,7 @@ export default function DonateModal({ asset, onClose, onSuccess }) {
                 ₨{receipt.pkr.toLocaleString()} received
               </p>
               <p className="mt-1 text-sm text-ink-soft">
-                {receipt.amountETH} ETH donated to {asset.name}
+                {receipt.amountETH} ETH given to {asset.name}
               </p>
 
               <div className="mt-5 space-y-1.5 rounded-xl bg-porcelain px-4 py-3 text-left font-ledger text-xs text-ink-soft">
@@ -457,13 +457,13 @@ export default function DonateModal({ asset, onClose, onSuccess }) {
                   <span className="text-ink">{maskPhone(receipt.phone)}</span>
                 </p>
                 <p className="flex justify-between gap-4">
-                  <span>On-chain tx</span>
+                  <span>On-chain record</span>
                   <span className="truncate text-ink">
                     {receipt.txHash ? `${receipt.txHash.slice(0, 8)}...${receipt.txHash.slice(-6)}` : "confirmed"}
                   </span>
                 </p>
                 <p className="flex justify-between gap-4">
-                  <span>New total raised</span>
+                  <span>New total collected</span>
                   <span className="text-ink">{receipt.asset.totalDonatedETH} ETH</span>
                 </p>
               </div>

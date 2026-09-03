@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import Layout from "../components/Layout";
 import KhatamStar from "../components/KhatamStar";
 import ProgressBar from "../components/ProgressBar";
+import AIReportSection from "../components/AIReportSection";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
@@ -65,11 +66,10 @@ export default function BeneficiaryPortal() {
             Beneficiary portal
           </p>
           <h1 className="mt-1 font-display text-3xl font-semibold text-mihrab">
-            Fund transparency
+            See how funds are used
           </h1>
           <p className="mt-2 max-w-lg text-sm text-ink-soft">
-            See how waqf endowment funds are being raised and spent, grouped by
-            beneficiary category.
+            See how much money was collected and spent, grouped by category.
           </p>
         </div>
 
@@ -95,7 +95,7 @@ export default function BeneficiaryPortal() {
         {!loading && categories.length === 0 && (
           <div className="py-24 text-center">
             <KhatamStar className="mx-auto mb-4 h-10 w-10 text-mihrab/25" />
-            <p className="text-lg font-medium text-mihrab">No waqf assets registered yet.</p>
+            <p className="text-lg font-medium text-mihrab">No waqf projects yet.</p>
           </div>
         )}
 
@@ -143,7 +143,7 @@ function CategorySection({ category, assets, historyMap }) {
           </span>
         </div>
         <p className="font-ledger text-xs text-ink-soft">
-          raised <span className="text-ink">{totalRaised.toFixed(2)}</span> · disbursed{" "}
+          collected <span className="text-ink">{totalRaised.toFixed(2)}</span> · spent{" "}
           <span className="text-zellige-deep">{totalDisbursed.toFixed(2)}</span> ETH
         </p>
       </div>
@@ -178,19 +178,19 @@ function CategorySection({ category, assets, historyMap }) {
               {/* Funding summary */}
               <dl className="mb-4 mt-2 space-y-1.5 text-sm">
                 <div className="flex justify-between gap-3">
-                  <dt className="text-ink-soft">Raised</dt>
+                  <dt className="text-ink-soft">Collected</dt>
                   <dd className="font-ledger font-medium text-ink">
                     {asset.totalDonatedETH} ETH
                   </dd>
                 </div>
                 <div className="flex justify-between gap-3">
-                  <dt className="text-ink-soft">Disbursed</dt>
+                  <dt className="text-ink-soft">Spent</dt>
                   <dd className="font-ledger font-medium text-zellige-deep">
                     {disbursed.toFixed(4)} ETH
                   </dd>
                 </div>
                 <div className="flex justify-between gap-3">
-                  <dt className="text-ink-soft">Funding goal</dt>
+                  <dt className="text-ink-soft">Target</dt>
                   <dd className="font-ledger text-ink-soft">
                     {asset.fundingGoalETH} ETH
                   </dd>
@@ -203,10 +203,10 @@ function CategorySection({ category, assets, historyMap }) {
               {/* Disbursement history */}
               <div className="mt-auto">
                 <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-soft">
-                  Fund usage
+                  How funds were used
                 </h4>
                 {history.length === 0 ? (
-                  <p className="text-xs text-ink-soft/70">No disbursements yet.</p>
+                  <p className="text-xs text-ink-soft/70">No payments sent yet.</p>
                 ) : (
                   <ul className="space-y-1.5">
                     {history.map((d, j) => (
@@ -223,6 +223,9 @@ function CategorySection({ category, assets, historyMap }) {
                   </ul>
                 )}
               </div>
+
+              {/* AI Report */}
+              <AIReportSection assetId={asset.id} />
             </article>
           );
         })}

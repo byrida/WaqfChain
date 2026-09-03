@@ -182,6 +182,57 @@ async function disburseFunds({ assetId, to, amountETH, purpose }) {
   return { txHash: receipt.hash };
 }
 
+// ─── Load Historical Disbursements ──────────────────────────────────────────────
+
+/**
+ * Queries past FundsDisbursed events from the blockchain and populates
+ * the in-memory disbursement history. Called on startup so history is
+ * available even if the backend starts after the deploy script ran.
+ */
+async function loadHistoryFromEvents() {
+  try {
+    const assetCount = await getNextAssetId();
+    let loaded = 0;
+
+    for (let i = 0; i < assetCount; i++) {
+      const logs = await contract.queryFilter(contract.filters.FundsDisbursed(i), 0);
+      for (const log of logs) {
+        const amountETH = ethers.formatEther(log.args.amount);
+        const purpose = log.args.purpose;
+        const to = log.args.to;
+        const block = await provider.getBlock(log.blockNumber);
+        const timestamp = block ? new Date(Number(block.timestamp) * 1000).toISOString() : new Date().toISOString();
+
+        // Only add if not already recorded (deduplication)
+        const alreadyRecorded = disbursementHistory.some(
+          (d) =>
+            d.assetId === Number(i) &&
+            d.to === to &&
+            d.amountETH === amountETH &&
+            d.purpose === purpose
+        );
+        if (!alreadyRecorded) {
+          disbursementHistory.push({
+            assetId: Number(i),
+            to,
+            amountETH,
+            purpose,
+            txHash: log.transactionHash,
+            timestamp,
+          });
+          loaded++;
+        }
+      }
+    }
+
+    if (loaded > 0) {
+      console.log(`[History] Loaded ${loaded} past disbursement(s) from blockchain.\n`);
+    }
+  } catch (err) {
+    console.warn("[History] Could not load past disbursement events:", err.message);
+  }
+}
+
 // ─── Event Listener ────────────────────────────────────────────────────────────────
 
 function startEventListener() {
@@ -219,6 +270,7 @@ module.exports = {
   getDonation,
   getAssetEvents,
   getDisbursementHistory,
+  loadHistoryFromEvents,
   createAsset,
   donate,
   disburseFunds,

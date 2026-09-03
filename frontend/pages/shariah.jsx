@@ -5,37 +5,37 @@ const PRINCIPLES = [
   {
     transliteration: "Luzūm",
     arabic: "لزوم",
-    name: "Irrevocability",
+    name: "Cannot be changed",
     summary:
-      "Once a waqf is founded, its purpose is fixed. The founder cannot revoke it or change what it was established for.",
+      "Once a waqf is created, its purpose is fixed. The founder cannot change or cancel it.",
     enforcement: [
-      "name, beneficiaryCategory and trustee are set once in createAsset()",
-      "No setter function for these fields exists anywhere in the contract",
-      "The test suite verifies no such setter can be found on the ABI",
+      "name, category and trustee are set once when the waqf is created",
+      "No function exists to change these after creation",
+      "Our tests confirm no such function can be found",
     ],
   },
   {
     transliteration: "Ta'bīd",
     arabic: "تأبيد",
-    name: "Perpetuity",
+    name: "Lasts forever",
     summary:
-      "The waqf corpus is permanent and inalienable. Only the yields and donations flowing through it may be spent — never the endowment itself.",
+      "The waqf itself is permanent. Only the money donated to it can be spent — the waqf can never be deleted or taken away.",
     enforcement: [
-      "No function can transfer, withdraw, or delete an asset record",
-      "disburseFunds() only reduces the spendable donation balance",
-      "The corpus struct remains on-chain, intact, forever",
+      "No function can delete, transfer, or remove a waqf",
+      "Sending funds only reduces the spendable balance, not the waqf itself",
+      "The waqf record stays on the blockchain forever",
     ],
   },
   {
     transliteration: "Amīn",
     arabic: "أمين",
-    name: "Trusteeship",
+    name: "Trusted manager",
     summary:
-      "The trustee is a custodian accountable for every dirham. Only the appointed trustee may release funds, always for a stated purpose.",
+      "Only the appointed trustee can send funds. They must explain what the money is for.",
     enforcement: [
-      "disburseFunds() requires msg.sender == asset.trustee",
-      "Every disbursement requires a non-empty purpose string",
-      "Each one emits FundsDisbursed(to, amount, purpose) on-chain",
+      "Only the trustee's wallet can send funds from the waqf",
+      "Every payment must include a reason",
+      "Each payment is recorded on the blockchain with the amount and reason",
     ],
   },
   {
@@ -43,11 +43,11 @@ const PRINCIPLES = [
     arabic: "صدقة جارية",
     name: "Ongoing Charity",
     summary:
-      "A gift that keeps giving. Every contribution is recorded permanently, and its benefit continues to flow to beneficiaries indefinitely.",
+      "A gift that keeps giving. Every donation is recorded permanently, and its benefit continues to flow to people in need.",
     enforcement: [
-      "donate() records donor and amount in an on-chain mapping",
-      "DonationReceived(donor, amount) is emitted for every gift",
-      "Contribution history is public and tamper-proof",
+      "Every donation records who gave and how much on the blockchain",
+      "A public record is created for every gift",
+      "Anyone can see the full donation history — nothing is hidden",
     ],
   },
 ];
@@ -62,13 +62,13 @@ export default function ShariahPage() {
             Shariah compliance
           </p>
           <h1 className="mt-1 font-display text-3xl font-semibold text-mihrab">
-            Principles, written into code
+            Shariah rules, built into the code
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-soft">
-            Classical waqf law rests on duties that trustees were once trusted to
-            uphold. On WaqfChain they are not policy — they are enforced by the
-            smart contract itself, and verified by the automated test suite
-            (20/20 passing).
+            Traditional waqf rules depend on people doing the right thing.
+            On WaqfChain, these rules are built into the code itself — no one
+            can break them, not even the person who created the project. All
+            20 automated tests pass.
           </p>
         </div>
 
@@ -104,7 +104,7 @@ export default function ShariahPage() {
               {/* Enforcement */}
               <div className="mt-auto rounded-xl bg-porcelain p-4">
                 <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-ink-soft">
-                  Enforced in the contract
+                  How the code enforces this
                 </h3>
                 <ul className="space-y-1.5">
                   {p.enforcement.map((line, j) => (
@@ -133,9 +133,9 @@ export default function ShariahPage() {
           <KhatamStar className="mt-0.5 h-4 w-4 shrink-0 text-gilt" />
           <p className="text-sm leading-relaxed text-ink">
             <span className="font-semibold text-mihrab">Why this matters:</span>{" "}
-            because these rules live in the contract rather than in a policy
-            document, no administrator — not even the deployer — can bend them.
-            Compliance is not a promise; it is a property of the code.
+            because these rules are in the code, not in a document — no
+            person, not even the creator, can change them. The rules are
+            followed automatically.
           </p>
         </div>
       </div>

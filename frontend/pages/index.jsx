@@ -15,24 +15,24 @@ const NAV = [
 const STAGES = [
   {
     number: "01",
-    title: "Give",
+    title: "Donate",
     role: "Donor portal",
     href: "/donor",
-    body: "Browse active waqf assets and contribute to the corpus.",
+    body: "See active waqf projects and give to them.",
   },
   {
     number: "02",
-    title: "Steward",
+    title: "Manage",
     role: "Trustee portal",
     href: "/trustee",
-    body: "Appointed trustees disburse funds and record the purpose of every payment.",
+    body: "Trusted people send funds and record how the money is used.",
   },
   {
     number: "03",
-    title: "Receive",
+    title: "See results",
     role: "Beneficiary portal",
     href: "/beneficiary",
-    body: "See what was raised, and exactly where it went.",
+    body: "See how much was collected and exactly how it was spent.",
   },
 ];
 
@@ -147,30 +147,30 @@ export default function Home() {
 
           <div className="pb-16 pt-14 sm:pb-20 sm:pt-16">
             <p className="font-ledger text-xs tracking-[0.2em] text-gilt">
-              TOKENIZED WAQF · POLYGON AMOY
+              WAQF ON BLOCKCHAIN · POLYGON AMOY
             </p>
             <h1 className="mt-5 max-w-3xl font-display text-4xl font-semibold leading-tight sm:text-6xl">
-              The corpus endures.
+              Your donation lives forever.
               <br />
-              The yield flows.
+              Its benefits never stop.
             </h1>
             <p className="mt-6 max-w-xl text-base leading-relaxed text-porcelain/75 sm:text-lg">
-              WaqfChain tokenizes Islamic endowments on Polygon so donors can
-              give, trustees can steward, and beneficiaries can verify — every
-              dirham on the record.
+              WaqfChain puts Islamic endowments on the blockchain. Donors
+              give, trustees manage, and everyone can see where every rupee
+              goes.
             </p>
 
             {stats && (
               <dl className="mt-12 flex max-w-2xl flex-wrap gap-x-12 gap-y-6 border-t border-white/10 pt-8">
                 <div>
                   <dt className="text-xs uppercase tracking-wider text-porcelain/55">
-                    Waqf assets
+                    Waqf projects
                   </dt>
                   <dd className="mt-1 font-ledger text-3xl text-gilt">{stats.assets}</dd>
                 </div>
                 <div>
                   <dt className="text-xs uppercase tracking-wider text-porcelain/55">
-                    Total raised
+                    Total collected
                   </dt>
                   <dd className="mt-1 font-ledger text-3xl text-gilt">
                     {stats.raised} <span className="text-base text-porcelain/55">ETH</span>
@@ -178,7 +178,7 @@ export default function Home() {
                 </div>
                 <div>
                   <dt className="text-xs uppercase tracking-wider text-porcelain/55">
-                    Disbursed
+                    Spent
                   </dt>
                   <dd className="mt-1 font-ledger text-3xl text-gilt">
                     {stats.disbursed} <span className="text-base text-porcelain/55">ETH</span>
@@ -194,11 +194,10 @@ export default function Home() {
       <section className="bg-porcelain text-ink">
         <div className="mx-auto w-full max-w-6xl px-6 py-16 sm:py-20">
           <h2 className="font-display text-2xl font-semibold text-mihrab sm:text-3xl">
-            One endowment, three roles
+            How it works
           </h2>
           <p className="mt-2 max-w-lg text-sm text-ink-soft">
-            Follow the funds through the life of a waqf — from donation to
-            disbursement to public account.
+            See how money moves — from donation to spending to public record.
           </p>
 
           <div className="mt-10 grid gap-5 md:grid-cols-3">
@@ -222,7 +221,7 @@ export default function Home() {
                   {stage.body}
                 </span>
                 <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-zellige-deep">
-                  Enter the portal
+                  Open
                   <svg
                     viewBox="0 0 16 16"
                     className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5"
@@ -242,7 +241,7 @@ export default function Home() {
 
       <footer className="border-t border-white/10">
         <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-2 px-6 py-4 text-xs text-porcelain/55">
-          <p>WaqfChain — waqf, on the record.</p>
+          <p>WaqfChain — waqf, fully transparent.</p>
           <p className="font-ledger">Polygon Amoy · chain 80002</p>
         </div>
       </footer>

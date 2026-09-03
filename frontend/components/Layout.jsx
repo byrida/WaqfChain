@@ -49,7 +49,7 @@ export default function Layout({ children }) {
 
       <footer className="border-t border-ink/10 bg-white">
         <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-2 px-6 py-4 text-xs text-ink-soft">
-          <p>WaqfChain — waqf, on the record.</p>
+          <p>WaqfChain — waqf, fully transparent.</p>
           <p className="font-ledger">Polygon Amoy · chain 80002</p>
         </div>
       </footer>

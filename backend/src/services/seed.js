@@ -1,6 +1,11 @@
-// WaqfChain — deploy WaqfRegistry to local Hardhat node or Polygon Amoy
-// Seeds 4 waqf assets with realistic data, donations, and disbursements
-const hre = require("hardhat");
+const { ethers } = require("ethers");
+
+/**
+ * Seed service — auto-populates 4 waqf assets with realistic data
+ * when the backend starts and finds 0 assets on-chain.
+ *
+ * Uses Hardhat local node pre-funded accounts (publicly documented).
+ */
 
 // Hardhat local node pre-funded accounts (publicly documented in Hardhat docs)
 const DONOR_KEYS = [
@@ -17,7 +22,7 @@ const ASSETS = [
       "A sustainable education fund for underprivileged children in rural Punjab, covering school fees, uniforms, and learning materials for 200+ students.",
     beneficiaryCategory: "education",
     fundingGoalETH: "20",
-    trusteeIndex: null, // deployer
+    trusteeIndex: null, // default trustee
     donations: [
       { donor: 0, amount: "3" },
       { donor: 1, amount: "5" },
@@ -34,7 +39,7 @@ const ASSETS = [
       "Building a community mosque with an attached community center in Islamabad, serving 500+ families with prayer halls, classrooms, and a library.",
     beneficiaryCategory: "mosque construction",
     fundingGoalETH: "50",
-    trusteeIndex: null, // deployer
+    trusteeIndex: null, // default trustee
     donations: [
       { donor: 0, amount: "10" },
       { donor: 1, amount: "7" },
@@ -67,7 +72,7 @@ const ASSETS = [
       "Free medical check-ups, medicine, and emergency care for low-income families in rural Sindh, operating a mobile clinic reaching 30+ villages.",
     beneficiaryCategory: "healthcare",
     fundingGoalETH: "25",
-    trusteeIndex: null, // deployer
+    trusteeIndex: null, // default trustee
     donations: [
       { donor: 0, amount: "4" },
       { donor: 1, amount: "3" },
@@ -76,49 +81,27 @@ const ASSETS = [
   },
 ];
 
-async function main() {
-  const [deployer] = await ethers.getSigners();
+async function seedData(contract, provider) {
+  const trusteeSigner = contract.signer;
+  const trusteeAddress = await trusteeSigner.getAddress();
+  const donors = DONOR_KEYS.map((key) => new ethers.Wallet(key, provider));
 
-  console.log("Deploying WaqfRegistry to:", hre.network.name);
-  console.log("Deployer address:", deployer.address);
-  console.log(
-    "Deployer balance:",
-    ethers.formatEther(await ethers.provider.getBalance(deployer.address)),
-    "ETH\n"
-  );
-
-  // Deploy contract
-  const WaqfRegistry = await ethers.getContractFactory("WaqfRegistry");
-  const registry = await WaqfRegistry.deploy();
-  await registry.waitForDeployment();
-
-  const address = await registry.getAddress();
-  console.log("WaqfRegistry deployed to:", address);
-  console.log("\nSave this address — you'll need it for the frontend and backend.\n");
-
-  // Create donor wallets (Hardhat local node accounts)
-  const donors = DONOR_KEYS.map((key) => new ethers.Wallet(key, ethers.provider));
-  console.log(`Loaded ${donors.length} donor wallets for seeding\n`);
-
-  // Seed all assets
-  console.log("─── Seeding waqf assets ─────────────────────────────────────\n");
+  console.log("[Seed] Found 0 assets on-chain — seeding demo data...\n");
+  console.log(`[Seed] Loaded ${donors.length} donor wallets\n`);
 
   for (let i = 0; i < ASSETS.length; i++) {
     const asset = ASSETS[i];
-    console.log(`[${i}] Creating: ${asset.name}`);
+    console.log(`[Seed] [${i}] Creating: ${asset.name}`);
 
-    // Resolve trustee: use a different wallet for one asset to demo access control
+    // Resolve trustee address
     const trusteeAddr =
       asset.trusteeIndex !== null && asset.trusteeIndex !== undefined
         ? donors[asset.trusteeIndex].address
-        : deployer.address;
-    const isAltTrustee = trusteeAddr !== deployer.address;
-    if (isAltTrustee) {
-      console.log(`    Trustee: ${trusteeAddr.slice(0, 10)}... (Account #${asset.trusteeIndex + 1})`);
-    }
+        : trusteeAddress;
+    const isAltTrustee = trusteeAddr !== trusteeAddress;
 
     // Create asset
-    const tx = await registry.createAsset(
+    const tx = await contract.createAsset(
       asset.name,
       asset.description,
       asset.beneficiaryCategory,
@@ -133,8 +116,8 @@ async function main() {
       console.log(`    Donations:`);
       for (const d of asset.donations) {
         const donorWallet = donors[d.donor];
-        const registryForDonor = registry.connect(donorWallet);
-        const donateTx = await registryForDonor.donate(i, {
+        const contractForDonor = contract.connect(donorWallet);
+        const donateTx = await contractForDonor.donate(i, {
           value: ethers.parseEther(d.amount),
         });
         await donateTx.wait();
@@ -145,13 +128,12 @@ async function main() {
     // Seed disbursements (from trustee — may need alternate signer)
     if (asset.disbursements.length > 0) {
       console.log(`    Disbursements:`);
-      const registryForDisburse = isAltTrustee
-        ? registry.connect(donors[asset.trusteeIndex])
-        : registry;
+      const contractForDisburse = isAltTrustee
+        ? contract.connect(donors[asset.trusteeIndex])
+        : contract;
       for (const d of asset.disbursements) {
-        // Disburse to a random address (Account #4 as recipient)
         const recipient = donors[3].address;
-        const disburseTx = await registryForDisburse.disburseFunds(
+        const disburseTx = await contractForDisburse.disburseFunds(
           i,
           recipient,
           ethers.parseEther(d.amount),
@@ -165,15 +147,7 @@ async function main() {
     console.log();
   }
 
-  console.log("── Demo ready ─────────────────────────────────────────────");
-  console.log("Contract:", address);
-  console.log("Network: ", hre.network.name);
-  console.log("Assets:  ", ASSETS.length, "(4 waqf categories seeded)\n");
+  console.log(`[Seed] ── Done: ${ASSETS.length} assets seeded ──────────────────\n`);
 }
 
-main()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error(error);
-    process.exit(1);
-  });
+module.exports = { seedData };

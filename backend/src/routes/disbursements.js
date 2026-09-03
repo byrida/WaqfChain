@@ -23,6 +23,11 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ error: "assetId, to, amountETH, and purpose are required" });
     }
 
+    const amount = parseFloat(amountETH);
+    if (isNaN(amount) || amount <= 0) {
+      return res.status(400).json({ error: "Amount must be a number greater than 0" });
+    }
+
     const result = await bc.disburseFunds({ assetId: Number(assetId), to, amountETH, purpose });
     const asset = await bc.getAsset(Number(assetId));
 
