@@ -3,11 +3,15 @@ const path = require("path");
 
 // ─── Configuration ────────────────────────────────────────────────────────────────
 const RPC_URL = process.env.RPC_URL || "http://127.0.0.1:8545";
-const PRIVATE_KEY =
-  process.env.PRIVATE_KEY ||
-  "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"; // Hardhat Account #0
+const PRIVATE_KEY = process.env.PRIVATE_KEY;
 const CONTRACT_ADDRESS =
   process.env.CONTRACT_ADDRESS || "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+
+if (!PRIVATE_KEY) {
+  throw new Error(
+    "PRIVATE_KEY is required. Copy backend/.env.example to backend/.env and set your server wallet key."
+  );
+}
 
 // ─── Provider & Signer ────────────────────────────────────────────────────────────
 const provider = new ethers.JsonRpcProvider(RPC_URL);
