@@ -14,11 +14,64 @@ describe("WaqfRegistry", function () {
     [owner, trustee, donor1, donor2, beneficiary, outsider] = await ethers.getSigners();
 
     const Factory = await ethers.getContractFactory("WaqfRegistry");
-    registry = await Factory.deploy();
+    registry = await Factory.deploy(owner.address);
     await registry.waitForDeployment();
+
+    // Approve the trustee used by most tests
+    await registry.connect(owner).approveTrustee(trustee.address);
   });
 
   // ─── 1. createAsset() — success path ────────────────────────────────────
+
+  describe("trustee approval", function () {
+    it("should allow only the owner to approve a trustee", async function () {
+      const newTrustee = outsider;
+
+      await expect(registry.connect(owner).approveTrustee(newTrustee.address))
+        .to.emit(registry, "TrusteeApproved")
+        .withArgs(newTrustee.address);
+
+      expect(await registry.approvedTrustees(newTrustee.address)).to.equal(true);
+    });
+
+    it("should allow only the owner to revoke an approved trustee", async function () {
+      await expect(registry.connect(owner).revokeTrustee(trustee.address))
+        .to.emit(registry, "TrusteeRevoked")
+        .withArgs(trustee.address);
+
+      expect(await registry.approvedTrustees(trustee.address)).to.equal(false);
+    });
+
+    it("should revert if a non-owner tries to approve a trustee", async function () {
+      await expect(
+        registry.connect(outsider).approveTrustee(outsider.address)
+      ).to.be.revertedWithCustomError(registry, "OwnableUnauthorizedAccount");
+    });
+
+    it("should revert if a non-owner tries to revoke a trustee", async function () {
+      await expect(
+        registry.connect(outsider).revokeTrustee(trustee.address)
+      ).to.be.revertedWithCustomError(registry, "OwnableUnauthorizedAccount");
+    });
+
+    it("should revert when approving the zero address", async function () {
+      await expect(
+        registry.connect(owner).approveTrustee(ethers.ZeroAddress)
+      ).to.be.revertedWith("WaqfRegistry: cannot approve zero address");
+    });
+
+    it("should revert when approving an already-approved trustee", async function () {
+      await expect(
+        registry.connect(owner).approveTrustee(trustee.address)
+      ).to.be.revertedWith("WaqfRegistry: trustee already approved");
+    });
+
+    it("should revert when revoking a trustee that is not approved", async function () {
+      await expect(
+        registry.connect(owner).revokeTrustee(outsider.address)
+      ).to.be.revertedWith("WaqfRegistry: trustee not approved");
+    });
+  });
 
   describe("createAsset", function () {
     it("should create an asset with valid inputs and emit AssetCreated", async function () {
@@ -42,6 +95,12 @@ describe("WaqfRegistry", function () {
     });
 
     // ─── 2. createAsset() — validation reverts ────────────────────────────
+
+    it("should revert if trustee is not approved", async function () {
+      await expect(
+        registry.createAsset(ASSET_NAME, ASSET_DESC, BENEFICIARY_CAT, outsider.address, FUNDING_GOAL)
+      ).to.be.revertedWith("WaqfRegistry: trustee is not approved");
+    });
 
     it("should revert if trustee is the zero address", async function () {
       await expect(

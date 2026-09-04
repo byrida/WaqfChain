@@ -10,6 +10,10 @@ const DONOR_KEYS = [
   "0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a", // Account #4
 ];
 
+// Extra approved trustee for live demo asset creation (Account #5)
+const DEMO_TRUSTEE_KEY =
+  "0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba";
+
 const ASSETS = [
   {
     name: "Al-Noor School Endowment",
@@ -87,18 +91,34 @@ async function main() {
     "ETH\n"
   );
 
-  // Deploy contract
+  // Create donor wallets (Hardhat local node accounts)
+  const donors = DONOR_KEYS.map((key) => new ethers.Wallet(key, ethers.provider));
+  const demoTrustee = new ethers.Wallet(DEMO_TRUSTEE_KEY, ethers.provider);
+  console.log(`Loaded ${donors.length} donor wallets for seeding\n`);
+
+  // Deploy contract with deployer as initial owner
   const WaqfRegistry = await ethers.getContractFactory("WaqfRegistry");
-  const registry = await WaqfRegistry.deploy();
+  const registry = await WaqfRegistry.deploy(deployer.address);
   await registry.waitForDeployment();
+
+  // Pre-approve trustees used by demo assets + an extra demo trustee
+  const trusteesToApprove = [
+    deployer.address,
+    donors[0].address,
+    demoTrustee.address,
+  ];
+
+  console.log("─── Approving demo trustees ─────────────────────────────────\n");
+  for (const trusteeAddr of trusteesToApprove) {
+    const tx = await registry.approveTrustee(trusteeAddr);
+    await tx.wait();
+    console.log(`  Approved trustee: ${trusteeAddr.slice(0, 10)}...`);
+  }
+  console.log();
 
   const address = await registry.getAddress();
   console.log("WaqfRegistry deployed to:", address);
   console.log("\nSave this address — you'll need it for the frontend and backend.\n");
-
-  // Create donor wallets (Hardhat local node accounts)
-  const donors = DONOR_KEYS.map((key) => new ethers.Wallet(key, ethers.provider));
-  console.log(`Loaded ${donors.length} donor wallets for seeding\n`);
 
   // Seed all assets
   console.log("─── Seeding waqf assets ─────────────────────────────────────\n");
@@ -168,7 +188,8 @@ async function main() {
   console.log("── Demo ready ─────────────────────────────────────────────");
   console.log("Contract:", address);
   console.log("Network: ", hre.network.name);
-  console.log("Assets:  ", ASSETS.length, "(4 waqf categories seeded)\n");
+  console.log("Assets:  ", ASSETS.length, "(4 waqf categories seeded)");
+  console.log("Approved trustees:", trusteesToApprove.length, "(includes 1 extra demo trustee)\n");
 }
 
 main()

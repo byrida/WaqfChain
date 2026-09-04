@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+
 /// @title WaqfRegistry
 /// @author WaqfChain
 /// @notice Registry for tokenized Waqf (Islamic endowment) assets.
@@ -8,7 +10,7 @@ pragma solidity ^0.8.24;
 ///         and purpose-restricted disbursement through on-chain rules.
 /// @dev    The waqf corpus is permanently locked once created. No function in this
 ///         contract can transfer ownership, withdraw, or delete a registered asset.
-contract WaqfRegistry {
+contract WaqfRegistry is Ownable {
     // ─── Types ────────────────────────────────────────────────────────────
 
     /// @notice Represents a tokenized Waqf (endowment) asset.
@@ -37,6 +39,10 @@ contract WaqfRegistry {
     /// @notice Tracks cumulative donation amount per donor per asset.
     /// @dev    `donations[assetId][donor]` → total wei contributed by that donor.
     mapping(uint256 => mapping(address => uint256)) public donations;
+
+    /// @notice Registry of addresses approved to be assigned as trustees.
+    /// @dev    Only the contract owner can add or remove entries.
+    mapping(address => bool) public approvedTrustees;
 
     // ─── Events ───────────────────────────────────────────────────────────
 
@@ -76,6 +82,38 @@ contract WaqfRegistry {
         string purpose
     );
 
+    /// @notice Emitted when the owner approves a new trustee address.
+    event TrusteeApproved(address indexed trustee);
+
+    /// @notice Emitted when the owner revokes a trustee address.
+    event TrusteeRevoked(address indexed trustee);
+
+    /// @notice Contract constructor. Sets the deployer as the initial owner.
+    /// @param initialOwner Address that will own the contract and manage trustee approvals.
+    constructor(address initialOwner) Ownable(initialOwner) {}
+
+    // ─── Trustee Management ───────────────────────────────────────────────
+
+    /// @notice Approves an address to be assigned as a trustee for new assets.
+    /// @dev    Only the contract owner can call this.
+    /// @param _trustee Address to approve
+    function approveTrustee(address _trustee) external onlyOwner {
+        require(_trustee != address(0), "WaqfRegistry: cannot approve zero address");
+        require(!approvedTrustees[_trustee], "WaqfRegistry: trustee already approved");
+        approvedTrustees[_trustee] = true;
+        emit TrusteeApproved(_trustee);
+    }
+
+    /// @notice Revokes a previously approved trustee address.
+    /// @dev    Only the contract owner can call this. Existing assets managed by
+    ///         the revoked address keep their trustee; only new asset creation is affected.
+    /// @param _trustee Address to revoke
+    function revokeTrustee(address _trustee) external onlyOwner {
+        require(approvedTrustees[_trustee], "WaqfRegistry: trustee not approved");
+        approvedTrustees[_trustee] = false;
+        emit TrusteeRevoked(_trustee);
+    }
+
     // ─── Asset Creation ───────────────────────────────────────────────────
 
     /// @notice Registers a new Waqf asset on-chain.
@@ -107,6 +145,10 @@ contract WaqfRegistry {
             "WaqfRegistry: trustee cannot be zero address"
         );
         require(_fundingGoal > 0, "WaqfRegistry: funding goal must be > 0");
+        require(
+            approvedTrustees[_trustee],
+            "WaqfRegistry: trustee is not approved"
+        );
 
         id = nextAssetId++;
 

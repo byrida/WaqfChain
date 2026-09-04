@@ -5,7 +5,7 @@ const path = require("path");
 const RPC_URL = process.env.RPC_URL || "http://127.0.0.1:8545";
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
 const CONTRACT_ADDRESS =
-  process.env.CONTRACT_ADDRESS || "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+  process.env.CONTRACT_ADDRESS || "0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82";
 
 if (!PRIVATE_KEY) {
   throw new Error(
@@ -18,7 +18,8 @@ const provider = new ethers.JsonRpcProvider(RPC_URL);
 const signer = new ethers.Wallet(PRIVATE_KEY, provider);
 
 // ─── Contract Instance ────────────────────────────────────────────────────────────
-const abi = require(path.join(__dirname, "../../contracts/WaqfRegistry.json"));
+const artifact = require(path.join(__dirname, "../../contracts/WaqfRegistry.json"));
+const abi = Array.isArray(artifact) ? artifact : artifact.abi;
 const contract = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────────
@@ -92,6 +93,11 @@ async function listAssets() {
 async function getDonation(assetId, donorAddress) {
   const amount = await contract.getDonation(assetId, donorAddress);
   return { assetId, donor: donorAddress, amount: amount.toString(), amountETH: ethers.formatEther(amount) };
+}
+
+async function isApprovedTrustee(address) {
+  const approved = await contract.approvedTrustees(address);
+  return Boolean(approved);
 }
 
 /**
@@ -272,6 +278,7 @@ module.exports = {
   getAsset,
   listAssets,
   getDonation,
+  isApprovedTrustee,
   getAssetEvents,
   getDisbursementHistory,
   loadHistoryFromEvents,

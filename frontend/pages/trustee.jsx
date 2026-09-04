@@ -12,6 +12,8 @@ export default function TrusteePortal() {
   const [allAssets, setAllAssets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isApproved, setIsApproved] = useState(null);
+  const [checkingApproval, setCheckingApproval] = useState(false);
 
   const fetchAssets = useCallback(async () => {
     try {
@@ -30,6 +32,27 @@ export default function TrusteePortal() {
   useEffect(() => {
     fetchAssets();
   }, [fetchAssets]);
+
+  // Check whether the connected wallet is an approved trustee
+  useEffect(() => {
+    async function checkApproval() {
+      if (!address) {
+        setIsApproved(null);
+        return;
+      }
+      setCheckingApproval(true);
+      try {
+        const res = await fetch(`${API_URL}/api/assets/check-trustee/${address}`);
+        const data = await res.json();
+        setIsApproved(data.isApproved === true);
+      } catch {
+        setIsApproved(false);
+      } finally {
+        setCheckingApproval(false);
+      }
+    }
+    checkApproval();
+  }, [address]);
 
   // Filter assets where the connected wallet is the trustee
   const trusteeAssets = address
@@ -84,6 +107,13 @@ export default function TrusteePortal() {
                 </p>
                 <p className="mt-0.5 font-ledger text-sm text-ink">
                   {address.slice(0, 6)}...{address.slice(-4)}
+                </p>
+                <p className="mt-0.5 text-xs text-ink-soft">
+                  {checkingApproval
+                    ? "Checking trustee approval..."
+                    : isApproved
+                    ? "Approved trustee"
+                    : "Not an approved trustee"}
                 </p>
               </div>
               <button onClick={fetchAssets} className="btn-ghost">
@@ -145,36 +175,228 @@ export default function TrusteePortal() {
           </div>
         )}
 
-        {/* Empty — wallet connected but no matching assets */}
-        {address && !loading && trusteeAssets.length === 0 && (
+        {/* Not approved trustee */}
+        {address && !loading && !checkingApproval && isApproved === false && (
           <div className="py-24 text-center">
             <KhatamStar className="mx-auto mb-4 h-10 w-10 text-mihrab/25" />
             <p className="text-lg font-medium text-mihrab">
-              No assets found for this wallet.
+              Your wallet isn&apos;t an approved trustee yet — contact the platform to get verified.
             </p>
             <p className="mt-1 max-w-sm mx-auto text-sm text-ink-soft">
-              Connect the trustee&apos;s wallet to manage funds. Switch to the
-              correct account in MetaMask.
+              Once the platform approves your wallet, you can create waqf assets
+              and manage funds here.
             </p>
           </div>
         )}
 
-        {/* Asset cards */}
-        {address && !loading && trusteeAssets.length > 0 && (
-          <div className="space-y-6">
-            {trusteeAssets.map((asset, i) => (
-              <div
-                key={asset.id}
-                className="motion-safe:animate-rise"
-                style={{ animationDelay: `${Math.min(i, 6) * 80}ms` }}
-              >
-                <TrusteeAssetCard asset={asset} onDisbursed={fetchAssets} />
+        {/* Approved trustee: create form + asset cards */}
+        {address && !loading && !checkingApproval && isApproved && (
+          <div className="space-y-8">
+            <CreateAssetForm address={address} onCreated={fetchAssets} />
+
+            {trusteeAssets.length === 0 ? (
+              <div className="py-16 text-center">
+                <KhatamStar className="mx-auto mb-4 h-10 w-10 text-mihrab/25" />
+                <p className="text-lg font-medium text-mihrab">
+                  No assets to manage yet.
+                </p>
+                <p className="mt-1 max-w-sm mx-auto text-sm text-ink-soft">
+                  Use the form above to create your first waqf asset. It will
+                  appear in the donor portal right away.
+                </p>
               </div>
-            ))}
+            ) : (
+              <div className="space-y-6">
+                {trusteeAssets.map((asset, i) => (
+                  <div
+                    key={asset.id}
+                    className="motion-safe:animate-rise"
+                    style={{ animationDelay: `${Math.min(i, 6) * 80}ms` }}
+                  >
+                    <TrusteeAssetCard asset={asset} onDisbursed={fetchAssets} />
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
     </Layout>
+  );
+}
+
+// ─── Create new waqf asset form ─────────────────────────────────────────────────
+
+const CATEGORIES = [
+  "education",
+  "orphan care",
+  "mosque construction",
+  "healthcare",
+  "food security",
+  "water & sanitation",
+  "livelihood",
+  "emergency relief",
+];
+
+const PKR_PER_ETH = 350000;
+
+function pkrToEth(pkr) {
+  return (pkr / PKR_PER_ETH).toFixed(6);
+}
+
+function CreateAssetForm({ address, onCreated }) {
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [category, setCategory] = useState("");
+  const [goalPKR, setGoalPKR] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState(null);
+  const [formSuccess, setFormSuccess] = useState(null);
+
+  const goalETH = parseFloat(goalPKR) > 0 ? pkrToEth(parseFloat(goalPKR)) : "0";
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setFormError(null);
+    setFormSuccess(null);
+
+    const pkr = parseFloat(goalPKR);
+    if (!name.trim() || !category || !pkr || pkr <= 0) {
+      setFormError("Please fill all fields and enter a funding goal greater than 0.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${API_URL}/api/assets`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(),
+          description: description.trim(),
+          beneficiaryCategory: category,
+          trustee: address,
+          fundingGoalETH: goalETH,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not create asset");
+
+      setFormSuccess(
+        `Created "${data.asset.name}". It will appear in the donor portal.`
+      );
+      setName("");
+      setDescription("");
+      setCategory("");
+      setGoalPKR("");
+      onCreated();
+    } catch (err) {
+      setFormError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <section className="rounded-2xl border border-ink/10 bg-white p-6 shadow-sm">
+      <h2 className="font-display text-lg font-semibold text-mihrab">
+        Create new waqf asset
+      </h2>
+      <p className="mt-1 text-sm text-ink-soft">
+        Register a new project on the blockchain. The connected wallet will be
+        its trustee.
+      </p>
+
+      <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+        <div>
+          <label htmlFor="asset-name" className="mb-1.5 block text-sm font-medium text-ink">
+            Asset name
+          </label>
+          <input
+            id="asset-name"
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Al-Noor School Endowment"
+            className="field"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="asset-description" className="mb-1.5 block text-sm font-medium text-ink">
+            Description
+          </label>
+          <textarea
+            id="asset-description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="What will this waqf fund do?"
+            className="field min-h-[80px]"
+          />
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label htmlFor="asset-category" className="mb-1.5 block text-sm font-medium text-ink">
+              Beneficiary category
+            </label>
+            <select
+              id="asset-category"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="field"
+            >
+              <option value="">Select a category</option>
+              {CATEGORIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="asset-goal" className="mb-1.5 block text-sm font-medium text-ink">
+              Funding goal (PKR)
+            </label>
+            <input
+              id="asset-goal"
+              type="number"
+              inputMode="numeric"
+              min="0"
+              value={goalPKR}
+              onChange={(e) => setGoalPKR(e.target.value)}
+              placeholder="e.g. 2,500,000"
+              className="field font-ledger"
+            />
+            {parseFloat(goalPKR) > 0 && (
+              <p className="mt-1 text-xs text-ink-soft">
+                ≈ {goalETH} ETH{" "}
+                <span className="text-ink/50">
+                  (demo rate: 1 ETH = ₨{PKR_PER_ETH.toLocaleString()})
+                </span>
+              </p>
+            )}
+          </div>
+        </div>
+
+        {formError && (
+          <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+            {formError}
+          </p>
+        )}
+        {formSuccess && (
+          <p className="flex items-center gap-2 rounded-lg bg-gilt-pale px-3 py-2 text-sm text-ink">
+            <KhatamStar className="h-3.5 w-3.5 shrink-0 text-gilt" />
+            {formSuccess}
+          </p>
+        )}
+
+        <button type="submit" disabled={submitting} className="btn-primary">
+          {submitting ? "Creating..." : "Create waqf asset"}
+        </button>
+      </form>
+    </section>
   );
 }
 

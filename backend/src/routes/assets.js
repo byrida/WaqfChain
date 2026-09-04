@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const { ethers } = require("ethers");
 const bc = require("../services/blockchain");
 const ai = require("../services/ai");
 
@@ -21,6 +22,21 @@ router.post("/", async (req, res) => {
     const asset = await bc.getAsset(result.assetId);
 
     res.status(201).json({ ...result, asset });
+  } catch (err) {
+    const message = err.reason || err.message;
+    res.status(500).json({ error: message });
+  }
+});
+
+// GET /api/assets/check-trustee/:address — check if an address is an approved trustee
+router.get("/check-trustee/:address", async (req, res) => {
+  try {
+    const address = req.params.address;
+    if (!ethers.isAddress(address)) {
+      return res.status(400).json({ error: "Invalid Ethereum address" });
+    }
+    const isApproved = await bc.isApprovedTrustee(address);
+    res.json({ address, isApproved });
   } catch (err) {
     const message = err.reason || err.message;
     res.status(500).json({ error: message });
