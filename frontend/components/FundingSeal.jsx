@@ -30,7 +30,7 @@ export default function FundingSeal({ progress = 0, className = "" }) {
         opacity="0.3"
       />
       <g clipPath={`url(#${id})`}>
-        <use href={`#${id}-star`} fill="#C9A227" />
+        <use href={`#${id}-star`} fill="#B38A5E" />
       </g>
     </svg>
   );

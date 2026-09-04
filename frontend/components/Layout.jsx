@@ -34,7 +34,7 @@ export default function Layout({ children }) {
                   aria-current={active ? "page" : undefined}
                   className={
                     active
-                      ? "font-semibold text-mihrab underline decoration-gilt decoration-2 underline-offset-8"
+                      ? "font-semibold text-mihrab underline decoration-plum decoration-2 underline-offset-8"
                       : "text-ink-soft transition-colors hover:text-ink"
                   }
                 >

@@ -7,11 +7,12 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        mihrab: { DEFAULT: "#0E3B2E", deep: "#092720", soft: "#155241" },
+        mihrab: { DEFAULT: "#183A37", deep: "#0F2522", soft: "#264E49" },
         zellige: { DEFAULT: "#1C7A5F", deep: "#14604B" },
-        gilt: { DEFAULT: "#C9A227", soft: "#E9D48A", pale: "#F7EFD9" },
+        gilt: { DEFAULT: "#B38A5E", soft: "#FFECD1", pale: "#FFF7E8" },
         porcelain: "#F4F6F1",
-        ink: { DEFAULT: "#14231D", soft: "#44584E" },
+        ink: { DEFAULT: "#04151F", soft: "#44584E" },
+        plum: { DEFAULT: "#5C0029", soft: "#7A0E3A" },
       },
       fontFamily: {
         display: ['"Reem Kufi"', "ui-sans-serif", "system-ui", "sans-serif"],

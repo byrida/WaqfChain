@@ -52,7 +52,7 @@ function GirihPattern() {
           <rect x="-11" y="-11" width="22" height="22" transform="rotate(45)" />
         </g>
         <pattern id="home-girih" width="88" height="88" patternUnits="userSpaceOnUse">
-          <g fill="none" stroke="#C9A227" strokeWidth="1">
+          <g fill="none" stroke="#B38A5E" strokeWidth="1">
             <use href="#home-star" transform="translate(44 44)" />
             <use href="#home-star" />
             <use href="#home-star" transform="translate(88 0)" />
