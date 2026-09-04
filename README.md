@@ -1,74 +1,185 @@
 # WaqfChain
 
-A platform for tokenizing Islamic endowment (Waqf) assets using blockchain technology. WaqfChain enables donors, trustees, and beneficiaries to interact with tokenized Waqf assets through dedicated portals, backed by smart contracts on the **Polygon Amoy testnet**.
+WaqfChain is a blockchain-based platform for tokenizing Islamic Waqf (endowment) assets. It lets donors contribute to transparent, perpetual charity projects, lets trustees manage and disburse funds responsibly, and lets beneficiaries and the public verify how every rupee is spent. An AI-powered impact report generator turns on-chain activity into plain-language summaries and Shariah-compliance checks.
+
+Built for hackathon demos and regional pitches, WaqfChain shows how traditional Islamic endowment principles can be enforced by smart contracts while staying easy for everyday donors to use.
 
 ---
 
-## Project Structure
+## Tech Stack
 
-```
-WaqfChain/
-├── frontend/          # Next.js / React frontend (donor, trustee, beneficiary portals)
-├── backend/           # Node.js REST API backend
-├── smart-contracts/   # Solidity smart contracts (Hardhat, Polygon Amoy testnet)
-└── README.md
-```
-
-### `frontend/`
-Next.js application serving three portals:
-- **Donor Portal** — create and fund Waqf asset tokens
-- **Trustee Portal** — manage and oversee Waqf assets
-- **Beneficiary Portal** — view and claim benefits from Waqf distributions
-
-**Stack:** Next.js, React, Ethers.js (wallet integration)
-
-### `backend/`
-Node.js / Express REST API that:
-- Exposes endpoints for Waqf asset CRUD, user management, and transaction tracking
-- Indexes on-chain events emitted by smart contracts
-- Acts as middleware between the frontend and the blockchain
-
-**Stack:** Node.js, Express, Ethers.js
-
-### `smart-contracts/`
-Hardhat project containing Solidity smart contracts for:
-- Waqf asset tokenization (ERC-721 / ERC-1155)
-- Donor, trustee, and beneficiary role management
-- Revenue distribution logic
-
-**Stack:** Solidity, Hardhat, Polygon Amoy testnet
+| Layer | Technology |
+| --- | --- |
+| Frontend | [Next.js](https://nextjs.org/) 14 + React + Tailwind CSS |
+| Backend | [Node.js](https://nodejs.org/) + [Express](https://expressjs.com/) + [Ethers.js](https://docs.ethers.org/) v6 |
+| Smart Contracts | [Solidity](https://soliditylang.org/) + [Hardhat](https://hardhat.org/) |
+| AI Reports | [Google Gemini API](https://ai.google.dev/) (`gemini-3.6-flash`) |
+| Blockchain target | Local Hardhat node (demo) / Polygon Amoy testnet (production-ready) |
 
 ---
 
-## Getting Started
+## Key Features
 
-Each sub-project has its own `package.json`. Install dependencies independently:
+- **Donor Portal** — Browse available Waqf projects, donate with MetaMask (ETH) or a simulated JazzCash/Easypaisa flow (PKR), and view your complete giving history.
+- **Trustee Portal** — Connect a MetaMask wallet and manage only the assets where your address is registered as trustee. Disburse funds with on-chain records.
+- **Beneficiary Portal** — Public transparency view showing funds collected, funds spent, and an AI-generated impact/compliance report for every project.
+- **Shariah-Compliant Smart Contract** — `WaqfRegistry.sol` enforces irrevocability, perpetuity, and trusteeship directly on-chain.
+- **AI Impact Reports** — Gemini summarizes project activity and flags potential compliance issues in plain language.
+- **Dual Payment Flow** — Crypto-native donors use MetaMask; mobile-money donors see a JazzCash/Easypaisa-style checkout (simulated for demo).
+
+---
+
+## Shariah Compliance
+
+The WaqfRegistry contract enforces four core Islamic Waqf principles:
+
+| Principle | On-chain enforcement |
+| --- | --- |
+| **Irrevocability** | Once an asset is created, it cannot be deleted or reversed by the creator. |
+| **Perpetuity** | The asset and its funding goal remain on-chain indefinitely; donations are recorded permanently. |
+| **Trusteeship** | Only the wallet address set as `trustee` during asset creation can disburse funds. |
+| **Ongoing Charity** | Funds are released only through recorded disbursements, ensuring continuous benefit to beneficiaries. |
+
+Read more inside the app on the **Shariah** page (`/shariah`).
+
+---
+
+## Setup Instructions
+
+### Prerequisites
+
+- [Node.js](https://nodejs.org/) **18.x or later** (LTS recommended)
+- [Git](https://git-scm.com/)
+- A MetaMask browser extension (for crypto donation / trustee demo flows)
+
+### 1. Clone the repository
 
 ```bash
-# Frontend
-cd frontend
-npm install
-npm run dev
-
-# Backend
-cd backend
-npm install
-npm run dev
-
-# Smart Contracts
-cd smart-contracts
-npm install
-npx hardhat compile
+git clone https://github.com/byrida/WaqfChain.git
+cd WaqfChain
 ```
 
+### 2. Install dependencies
+
+Run `npm install` in all three tiers:
+
+```bash
+cd backend && npm install
+cd ../frontend && npm install
+cd ../smart-contracts && npm install
+cd ..
+```
+
+### 3. Configure environment variables
+
+Copy each `.env.example` file to `.env` and fill in the required values.
+
+```bash
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
+cp smart-contracts/.env.example smart-contracts/.env
+```
+
+#### `backend/.env`
+
+```text
+PORT=5000
+RPC_URL=http://127.0.0.1:8545
+CHAIN_ID=31337
+PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+CONTRACT_ADDRESS=          # fill after running deploy.js
+GEMINI_API_KEY=            # optional — needed for AI reports
+```
+
+> For the local demo, use the Hardhat Account #0 private key shown above. For production, use a dedicated server wallet key.
+
+#### `frontend/.env`
+
+```text
+NEXT_PUBLIC_API_URL=http://localhost:5000
+NEXT_PUBLIC_CHAIN_ID=31337
+NEXT_PUBLIC_RPC_URL=http://127.0.0.1:8545
+```
+
+#### `smart-contracts/.env`
+
+```text
+RPC_URL=http://127.0.0.1:8545
+PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+POLYGONSCAN_API_KEY=       # optional — only for contract verification
+```
+
+### 4. Start the local blockchain
+
+```bash
+cd smart-contracts
+npx hardhat node
+```
+
+This starts a local Ethereum node at `http://127.0.0.1:8545` with 20 pre-funded test accounts.
+
+### 5. Deploy the contract and seed demo data
+
+In a new terminal:
+
+```bash
+cd smart-contracts
+npx hardhat run scripts/deploy.js --network localhost
+```
+
+Save the printed contract address and paste it into `backend/.env` as `CONTRACT_ADDRESS`.
+
+The deploy script automatically creates 4 demo Waqf assets across education, mosque construction, orphan care, and healthcare, complete with sample donations and disbursements.
+
+### 6. Start the backend
+
+In a new terminal:
+
+```bash
+cd backend
+node src/index.js
+```
+
+The backend runs at `http://localhost:5000`. It will detect the deployed assets and skip auto-seeding.
+
+### 7. Start the frontend
+
+In a new terminal:
+
+```bash
+cd frontend
+npx next dev --port 3000
+```
+
+### 8. Open the app
+
+Go to **http://localhost:3000** in your browser.
+
+Use the top navigation to switch between portals:
+
+- **Home** — Project overview
+- **Donor** — Browse projects and donate
+- **Trustee** — Connect MetaMask to manage assigned assets
+- **Beneficiary** — Public spending transparency + AI reports
+- **Shariah** — Explanation of compliance principles
+
 ---
 
-## Environment Variables
+## Demo Mode Note
 
-Each sub-project uses a `.env` file for local configuration. Template files (`.env.example`) are provided in each directory.
+WaqfChain currently runs on a **local Hardhat blockchain** for demo purposes. This avoids relying on external Polygon Amoy faucets, which can be rate-limited or empty during hackathon judging. For a production or regional-round deployment, update the RPC URLs and chain IDs to point to **Polygon Amoy testnet** (or mainnet) and use dedicated wallets instead of the Hardhat test accounts.
 
 ---
 
-## Network
+## Known Limitations & Future Scope
 
-All smart contracts target the **Polygon Amoy testnet** (chain ID `80002`).
+- **JazzCash / Easypaisa is simulated.** The mobile-money checkout is a UI demo that records a PKR amount off-chain and performs the actual on-chain donation via the platform wallet. Real integration would connect to JazzCash/Easypaisa APIs.
+- **Trustees need MetaMask.** In production, a custodial wallet or social-login wallet system would let non-technical trustees manage funds without installing a browser extension.
+- **Off-chain data is in-memory.** Mobile-money donation records reset when the backend restarts. A future version would use a database.
+- **Urdu language support** is planned to make the donor and beneficiary portals more accessible across Pakistan.
+
+---
+
+## License
+
+This project was built for hackathon demonstration. Check the repository license before using it in production.
