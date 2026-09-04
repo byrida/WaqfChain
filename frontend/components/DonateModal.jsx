@@ -31,6 +31,7 @@ export default function DonateModal({ asset, onClose, onSuccess }) {
   // mobile money flow (JazzCash / Easypaisa)
   const [phone, setPhone] = useState("");
   const [pkrAmount, setPkrAmount] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("JazzCash");
   const [receipt, setReceipt] = useState(null);
 
   useEffect(() => {
@@ -110,7 +111,13 @@ export default function DonateModal({ asset, onClose, onSuccess }) {
       const res = await fetch(`${API_URL}/api/donations`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ assetId: asset.id, amountETH }),
+        body: JSON.stringify({
+          assetId: asset.id,
+          amountETH,
+          amountPKR: pkr,
+          phoneNumber: phone.replace(/\D/g, ""),
+          paymentMethod,
+        }),
       });
 
       const data = await res.json();
@@ -120,6 +127,7 @@ export default function DonateModal({ asset, onClose, onSuccess }) {
         pkr,
         amountETH,
         phone: phone.replace(/\D/g, ""),
+        paymentMethod,
         txHash: data.txHash,
         asset: data.asset,
       });
@@ -358,6 +366,28 @@ export default function DonateModal({ asset, onClose, onSuccess }) {
                 autoFocus
               />
 
+              <label className="mb-1.5 block text-sm font-medium text-ink">
+                Payment method
+              </label>
+              <div className="mb-3 flex gap-3">
+                {["JazzCash", "Easypaisa"].map((method) => (
+                  <button
+                    key={method}
+                    type="button"
+                    onClick={() => setPaymentMethod(method)}
+                    className={`flex-1 rounded-lg border px-3 py-2 text-xs font-semibold transition ${
+                      paymentMethod === method
+                        ? method === "JazzCash"
+                          ? "border-[#E10E49] bg-[#E10E49]/10 text-[#E10E49]"
+                          : "border-[#4A9E3F] bg-[#57BB4C]/15 text-[#4A9E3F]"
+                        : "border-ink/10 bg-porcelain text-ink-soft hover:border-ink/20"
+                    }`}
+                  >
+                    {method}
+                  </button>
+                ))}
+              </div>
+
               <label htmlFor="mobile-amount" className="mb-1.5 block text-sm font-medium text-ink">
                 Amount (PKR)
               </label>
@@ -455,6 +485,10 @@ export default function DonateModal({ asset, onClose, onSuccess }) {
                 <p className="flex justify-between gap-4">
                   <span>Mobile account</span>
                   <span className="text-ink">{maskPhone(receipt.phone)}</span>
+                </p>
+                <p className="flex justify-between gap-4">
+                  <span>Paid with</span>
+                  <span className="text-ink">{receipt.paymentMethod}</span>
                 </p>
                 <p className="flex justify-between gap-4">
                   <span>On-chain record</span>

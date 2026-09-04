@@ -32,8 +32,9 @@ app.listen(PORT, async () => {
   console.log("  POST   /api/assets          — create a new Waqf asset");
   console.log("  GET    /api/assets           — list all assets");
   console.log("  GET    /api/assets/:id       — get a single asset");
-  console.log("  POST   /api/donations        — donate to an asset");
-  console.log("  GET    /api/donations/:assetId/:donor — get donation for a donor");
+  console.log("  POST   /api/donations        — donate to an asset (wallet or mobile money)");
+  console.log("  GET    /api/donations/:assetId/:donor  — get on-chain donation for a wallet");
+  console.log("  GET    /api/donations/offchain/:phone  — get off-chain donations by phone");
   console.log("  POST   /api/disbursements    — disburse funds (trustee)");
   console.log("  GET    /api/health           — health check\n");
 
