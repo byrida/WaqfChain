@@ -1,16 +1,23 @@
 const express = require("express");
 const router = express.Router();
 const { ethers } = require("ethers");
+const jwt = require("jsonwebtoken");
 const bc = require("../services/blockchain");
 const ai = require("../services/ai");
+const trustees = require("../services/trustees");
+
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // POST /api/assets — create a new Waqf asset
+// If a JWT is present, the trustee address and signing key are derived from the
+// session token (custodial flow — no MetaMask needed). Otherwise falls back to
+// the request body trustee address signed by the backend default key.
 router.post("/", async (req, res) => {
   try {
     const { name, description, beneficiaryCategory, trustee, fundingGoalETH } = req.body;
 
-    if (!name || !beneficiaryCategory || !trustee || !fundingGoalETH) {
-      return res.status(400).json({ error: "name, beneficiaryCategory, trustee, and fundingGoalETH are required" });
+    if (!name || !beneficiaryCategory || !fundingGoalETH) {
+      return res.status(400).json({ error: "name, beneficiaryCategory, and fundingGoalETH are required" });
     }
 
     const goal = parseFloat(fundingGoalETH);
@@ -18,7 +25,36 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ error: "fundingGoalETH must be a number greater than 0" });
     }
 
-    const result = await bc.createAsset({ name, description: description || "", beneficiaryCategory, trustee, fundingGoalETH });
+    let trusteeAddress = trustee;
+    let contractOverride = null;
+
+    // JWT custodial auth — use the trustee's stored encrypted key to sign
+    const authHeader = req.headers.authorization || "";
+    if (authHeader.startsWith("Bearer ")) {
+      try {
+        const payload = jwt.verify(authHeader.slice(7), JWT_SECRET);
+        trusteeAddress = payload.walletAddress;
+        const privateKey = trustees.getDecryptedKey(payload.email);
+        if (privateKey) {
+          contractOverride = bc.getContractForKey(privateKey);
+        }
+      } catch {
+        // Invalid token — fall through to default signer
+      }
+    }
+
+    if (!trusteeAddress) {
+      return res.status(400).json({ error: "trustee address is required (or provide a valid JWT)" });
+    }
+
+    const result = await bc.createAsset({
+      name,
+      description: description || "",
+      beneficiaryCategory,
+      trustee: trusteeAddress,
+      fundingGoalETH,
+      contractOverride,
+    });
     const asset = await bc.getAsset(result.assetId);
 
     res.status(201).json({ ...result, asset });

@@ -3,12 +3,22 @@ import DonateModal from "./DonateModal";
 import FundingSeal from "./FundingSeal";
 import CategoryChip from "./CategoryChip";
 
+// Demo conversion rate — this is a sandbox flow, not a real exchange rate.
+const PKR_PER_ETH = 350000;
+
+function ethToPkr(eth) {
+  return (parseFloat(eth) * PKR_PER_ETH).toFixed(0);
+}
+
 export default function DonorCard({ asset, onDonationSuccess }) {
   const [showModal, setShowModal] = useState(false);
 
   const donated = parseFloat(asset.totalDonatedETH);
   const goal = parseFloat(asset.fundingGoalETH);
   const progress = goal > 0 ? Math.min((donated / goal) * 100, 100) : 0;
+
+  const collectedPKR = ethToPkr(asset.totalDonatedETH);
+  const goalPKR = ethToPkr(asset.fundingGoalETH);
 
   return (
     <>
@@ -36,11 +46,11 @@ export default function DonorCard({ asset, onDonationSuccess }) {
           />
           <div className="min-w-0">
             <p className="font-ledger text-lg leading-tight text-ink">
-              {asset.totalDonatedETH}{" "}
-              <span className="text-xs text-ink-soft">ETH collected</span>
+              ₨{Number(collectedPKR).toLocaleString()}{" "}
+              <span className="text-xs text-ink-soft">collected</span>
             </p>
             <p className="mt-1 font-ledger text-xs text-ink-soft">
-              goal {asset.fundingGoalETH} ETH · {progress.toFixed(1)}% complete
+              goal ₨{Number(goalPKR).toLocaleString()} · {progress.toFixed(1)}% complete
             </p>
           </div>
         </div>

@@ -7,6 +7,8 @@ const { seedData } = require("./services/seed");
 const assetsRouter = require("./routes/assets");
 const donationsRouter = require("./routes/donations");
 const disbursementsRouter = require("./routes/disbursements");
+const trusteeRouter = require("./routes/trustee");
+const adminRouter = require("./routes/admin");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -19,6 +21,8 @@ app.use(express.json());
 app.use("/api/assets", assetsRouter);
 app.use("/api/donations", donationsRouter);
 app.use("/api/disbursements", disbursementsRouter);
+app.use("/api/trustee", trusteeRouter);
+app.use("/api/admin", adminRouter);
 
 // Health check
 app.get("/api/health", (req, res) => {
@@ -36,6 +40,12 @@ app.listen(PORT, async () => {
   console.log("  GET    /api/donations/:assetId/:donor  — get on-chain donation for a wallet");
   console.log("  GET    /api/donations/offchain/:phone  — get off-chain donations by phone");
   console.log("  POST   /api/disbursements    — disburse funds (trustee)");
+  console.log("  POST   /api/trustee/signup   — register a new trustee (email + password)");
+  console.log("  POST   /api/trustee/login    — login and get a JWT session token");
+  console.log("  GET    /api/trustee/me       — get current trustee info (requires JWT)");
+  console.log("  GET    /api/admin/trustees    — list all trustee applications (admin)");
+  console.log("  POST   /api/admin/trustees/approve — approve a trustee on-chain (admin)");
+  console.log("  POST   /api/admin/trustees/reject  — reject a trustee (admin)");
   console.log("  GET    /api/health           — health check\n");
 
   // Start listening for on-chain events

@@ -25,6 +25,19 @@ const contract = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
 // ─── Helpers ───────────────────────────────────────────────────────────────────────
 
 /**
+ * Creates a new Contract instance bound to a specific private key (for custodial
+ * trustee signing). The trustee's encrypted key is decrypted at request time and
+ * used to sign on-chain transactions without requiring MetaMask.
+ *
+ * ⚠️  Demo only — production should use AWS KMS or a similar managed signing
+ *     service rather than raw private keys in application memory.
+ */
+function getContractForKey(privateKey) {
+  const wallet = new ethers.Wallet(privateKey, provider);
+  return new ethers.Contract(CONTRACT_ADDRESS, abi, wallet);
+}
+
+/**
  * Serialize a WaqfAsset struct returned by the contract into a plain object.
  * BigInt values are converted to strings (wei) and a human-readable ETH field is added.
  */
@@ -101,6 +114,16 @@ async function isApprovedTrustee(address) {
 }
 
 /**
+ * Calls approveTrustee(address) on the smart contract.
+ * Only the contract owner can call this — the backend signer must be the owner.
+ */
+async function approveTrusteeOnChain(address) {
+  const tx = await contract.approveTrustee(address);
+  const receipt = await tx.wait();
+  return { txHash: receipt.hash };
+}
+
+/**
  * Reads the full on-chain event history for a given asset — AssetCreated,
  * DonationReceived, and FundsDisbursed — via queryFilter, with block timestamps.
  * Returned in chronological order for AI reporting and auditing.
@@ -160,9 +183,10 @@ async function getAssetEvents(assetId) {
 
 // ─── Contract Writes ───────────────────────────────────────────────────────────────
 
-async function createAsset({ name, description, beneficiaryCategory, trustee, fundingGoalETH }) {
+async function createAsset({ name, description, beneficiaryCategory, trustee, fundingGoalETH, contractOverride }) {
   const fundingGoal = ethers.parseEther(fundingGoalETH);
-  const tx = await contract.createAsset(name, description, beneficiaryCategory, trustee, fundingGoal);
+  const c = contractOverride || contract;
+  const tx = await c.createAsset(name, description, beneficiaryCategory, trustee, fundingGoal);
   const receipt = await tx.wait();
 
   // Parse AssetCreated event from the receipt
@@ -181,9 +205,10 @@ async function donate(assetId, amountETH) {
   return { txHash: receipt.hash };
 }
 
-async function disburseFunds({ assetId, to, amountETH, purpose }) {
+async function disburseFunds({ assetId, to, amountETH, purpose, contractOverride }) {
   const amount = ethers.parseEther(amountETH);
-  const tx = await contract.disburseFunds(assetId, to, amount, purpose);
+  const c = contractOverride || contract;
+  const tx = await c.disburseFunds(assetId, to, amount, purpose);
   const receipt = await tx.wait();
 
   // Record locally for instant history (event listener also records as backup)
@@ -273,12 +298,16 @@ module.exports = {
   provider,
   signer,
   contract,
+  abi,
+  CONTRACT_ADDRESS,
+  getContractForKey,
   serializeAsset,
   getNextAssetId,
   getAsset,
   listAssets,
   getDonation,
   isApprovedTrustee,
+  approveTrusteeOnChain,
   getAssetEvents,
   getDisbursementHistory,
   loadHistoryFromEvents,

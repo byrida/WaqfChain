@@ -10,6 +10,13 @@ const MODEL_NAME = "gemini-3.6-flash";
 const RETRY_BASE_DELAY_MS = 3000;
 const MAX_RETRIES = 3;
 
+// Demo conversion rate — this is a sandbox flow, not a real exchange rate.
+const PKR_PER_ETH = 350000;
+
+function ethToPkr(eth) {
+  return Math.round(parseFloat(eth) * PKR_PER_ETH);
+}
+
 let model = null;
 
 /**
@@ -39,12 +46,12 @@ function buildPrompt(asset, events) {
   const eventLines = events
     .map((e) => {
       if (e.type === "AssetCreated") {
-        return `- AssetCreated: name="${e.name}", category="${e.beneficiaryCategory}", funding goal=${e.fundingGoalETH} ETH (${e.timestamp || "unknown time"})`;
+        return `- AssetCreated: name="${e.name}", category="${e.beneficiaryCategory}", funding goal=₨${ethToPkr(e.fundingGoalETH).toLocaleString()} (${e.timestamp || "unknown time"})`;
       }
       if (e.type === "DonationReceived") {
-        return `- DonationReceived: ${e.amountETH} ETH from ${e.donor} (${e.timestamp || "unknown time"})`;
+        return `- DonationReceived: ₨${ethToPkr(e.amountETH).toLocaleString()} from ${e.donor} (${e.timestamp || "unknown time"})`;
       }
-      return `- FundsDisbursed: ${e.amountETH} ETH to ${e.to}, purpose="${e.purpose}" (${e.timestamp || "unknown time"})`;
+      return `- FundsDisbursed: ₨${ethToPkr(e.amountETH).toLocaleString()} to ${e.to}, purpose="${e.purpose}" (${e.timestamp || "unknown time"})`;
     })
     .join("\n");
 
@@ -54,17 +61,17 @@ ASSET DATA:
 - Name: ${asset.name}
 - Description: ${asset.description || "(none)"}
 - Beneficiary category: ${asset.beneficiaryCategory}
-- Funding goal: ${asset.fundingGoalETH} ETH
-- Total raised so far: ${asset.totalDonatedETH} ETH
+- Funding goal: ₨${ethToPkr(asset.fundingGoalETH).toLocaleString()}
+- Total raised so far: ₨${ethToPkr(asset.totalDonatedETH).toLocaleString()}
 
 ON-CHAIN EVENT HISTORY (chronological):
 ${eventLines || "(no events)"}
 
 Produce exactly two outputs:
 
-1. impactReport: a plain-language, donor-friendly summary of this asset's activity — total raised, how the funds have been used, and progress toward the funding goal. Keep it warm, simple, and 3-5 sentences.
+1. impactReport: a plain-language, donor-friendly summary of this asset's activity — total raised, how the funds have been used, and progress toward the funding goal. Keep it warm, simple, and 3-5 sentences. Use PKR (₨) for all monetary amounts.
 
-2. A compliance check: flag anything unusual — a disbursement amount that seems too large relative to what has been raised, or a disbursement purpose that does not clearly match the asset's beneficiary category. If nothing is unusual, set complianceCheck to exactly "No issues found" and flags to an empty array. Otherwise, set complianceCheck to "Issues found" and give a short list of flags with plain-language reasons.
+2. A compliance check: flag anything unusual — a disbursement amount that seems too large relative to what has been raised, or a disbursement purpose that does not clearly match the asset's beneficiary category. If nothing is unusual, set complianceCheck to exactly "No issues found" and flags to an empty array. Otherwise, set complianceCheck to "Issues found" and give a short list of flags with plain-language reasons. Use PKR (₨) for all monetary amounts.
 
 Respond ONLY with JSON in this exact shape:
 {"impactReport": "...", "complianceCheck": "No issues found", "flags": ["..."]}`;

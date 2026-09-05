@@ -6,6 +6,13 @@ import AIReportSection from "../components/AIReportSection";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
+// Demo conversion rate — this is a sandbox flow, not a real exchange rate.
+const PKR_PER_ETH = 350000;
+
+function ethToPkr(eth) {
+  return (parseFloat(eth) * PKR_PER_ETH).toFixed(0);
+}
+
 export default function BeneficiaryPortal() {
   const [assets, setAssets] = useState([]);
   const [historyMap, setHistoryMap] = useState({});
@@ -132,6 +139,9 @@ function CategorySection({ category, assets, historyMap }) {
     .filter((d) => assets.some((a) => a.id === d.assetId))
     .reduce((sum, d) => sum + (parseFloat(d.amountETH) || 0), 0);
 
+  const totalRaisedPKR = ethToPkr(totalRaised);
+  const totalDisbursedPKR = ethToPkr(totalDisbursed);
+
   return (
     <section>
       {/* Category masthead */}
@@ -143,8 +153,8 @@ function CategorySection({ category, assets, historyMap }) {
           </span>
         </div>
         <p className="font-ledger text-xs text-ink-soft">
-          collected <span className="text-ink">{totalRaised.toFixed(2)}</span> · spent{" "}
-          <span className="text-zellige-deep">{totalDisbursed.toFixed(2)}</span> ETH
+          collected <span className="text-ink">₨{Number(totalRaisedPKR).toLocaleString()}</span> · spent{" "}
+          <span className="text-zellige-deep">₨{Number(totalDisbursedPKR).toLocaleString()}</span>
         </p>
       </div>
 
@@ -158,6 +168,10 @@ function CategorySection({ category, assets, historyMap }) {
           const goal = parseFloat(asset.fundingGoalETH);
           const donated = parseFloat(asset.totalDonatedETH);
           const progress = goal > 0 ? Math.min((donated / goal) * 100, 100) : 0;
+
+          const collectedPKR = ethToPkr(asset.totalDonatedETH);
+          const spentPKR = ethToPkr(disbursed);
+          const targetPKR = ethToPkr(asset.fundingGoalETH);
 
           return (
             <article
@@ -180,19 +194,19 @@ function CategorySection({ category, assets, historyMap }) {
                 <div className="flex justify-between gap-3">
                   <dt className="text-ink-soft">Collected</dt>
                   <dd className="font-ledger font-medium text-ink">
-                    {asset.totalDonatedETH} ETH
+                    ₨{Number(collectedPKR).toLocaleString()}
                   </dd>
                 </div>
                 <div className="flex justify-between gap-3">
                   <dt className="text-ink-soft">Spent</dt>
                   <dd className="font-ledger font-medium text-zellige-deep">
-                    {disbursed.toFixed(4)} ETH
+                    ₨{Number(spentPKR).toLocaleString()}
                   </dd>
                 </div>
                 <div className="flex justify-between gap-3">
                   <dt className="text-ink-soft">Target</dt>
                   <dd className="font-ledger text-ink-soft">
-                    {asset.fundingGoalETH} ETH
+                    ₨{Number(targetPKR).toLocaleString()}
                   </dd>
                 </div>
               </dl>
@@ -216,7 +230,7 @@ function CategorySection({ category, assets, historyMap }) {
                       >
                         <span className="text-ink">{d.purpose}</span>
                         <span className="ml-2 shrink-0 font-ledger font-medium text-mihrab">
-                          {d.amountETH} ETH
+                          ₨{Number(ethToPkr(d.amountETH)).toLocaleString()}
                         </span>
                       </li>
                     ))}

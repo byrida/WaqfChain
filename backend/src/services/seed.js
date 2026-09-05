@@ -5,9 +5,15 @@ const { ethers } = require("ethers");
  * when the backend starts and finds 0 assets on-chain.
  *
  * Uses Hardhat local node pre-funded accounts (publicly documented).
+ *
+ * Role separation (matches deploy.js):
+ *   Account #0  (0xf39f...2266) = Contract owner / admin ONLY — not a trustee
+ *   Accounts #1-4               = Donors (fund contributors)
+ *   Accounts #5-8               = Trustees (one per demo asset)
+ *   Account #9                  = Extra approved trustee for live demo
  */
 
-// Hardhat local node pre-funded accounts (publicly documented in Hardhat docs)
+// Donor private keys (Accounts #1-4)
 const DONOR_KEYS = [
   "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d", // Account #1
   "0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a", // Account #2
@@ -15,9 +21,17 @@ const DONOR_KEYS = [
   "0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a", // Account #4
 ];
 
-// Extra approved trustee for live demo asset creation (Account #5)
+// Trustee private keys (Accounts #5-8) — each demo asset gets its own trustee
+const TRUSTEE_KEYS = [
+  "0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba", // Account #5 — 0x9965507D...
+  "0x92db14e403b83dfe3df233f83dfa3a0d7096f21ca9b0d6d6b8d88b2b4ec1564e", // Account #6 — 0x976EA740...
+  "0x4bbbf85ce3377467afe5d46f804f221813b2bb87f24d81f60f1fcdbf7cbf4356", // Account #7 — 0x14dC7996...
+  "0xdbda1821b80551c9d65939329250298aa3472ba22feea921c0cf5d620ea67b97", // Account #8 — 0x23618e81...
+];
+
+// Extra approved trustee for live demo asset creation (Account #9)
 const DEMO_TRUSTEE_KEY =
-  "0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba";
+  "0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6"; // Account #9 — 0xa0Ee7A14...
 
 const ASSETS = [
   {
@@ -26,7 +40,7 @@ const ASSETS = [
       "A sustainable education fund for underprivileged children in rural Punjab, covering school fees, uniforms, and learning materials for 200+ students.",
     beneficiaryCategory: "education",
     fundingGoalETH: "20",
-    trusteeIndex: null, // default trustee
+    trusteeIndex: 0, // Trustee #0 (Account #5)
     donations: [
       { donor: 0, amount: "3" },
       { donor: 1, amount: "5" },
@@ -43,7 +57,7 @@ const ASSETS = [
       "Building a community mosque with an attached community center in Islamabad, serving 500+ families with prayer halls, classrooms, and a library.",
     beneficiaryCategory: "mosque construction",
     fundingGoalETH: "50",
-    trusteeIndex: null, // default trustee
+    trusteeIndex: 1, // Trustee #1 (Account #6)
     donations: [
       { donor: 0, amount: "10" },
       { donor: 1, amount: "7" },
@@ -59,7 +73,7 @@ const ASSETS = [
       "Monthly sustenance, clothing, and mentorship for 120 orphaned children across Lahore and Karachi, providing stability and educational support.",
     beneficiaryCategory: "orphan care",
     fundingGoalETH: "15",
-    trusteeIndex: 0, // Account #1 — different trustee to demo access control
+    trusteeIndex: 2, // Trustee #2 (Account #7)
     donations: [
       { donor: 0, amount: "2" },
       { donor: 1, amount: "1.5" },
@@ -76,7 +90,7 @@ const ASSETS = [
       "Free medical check-ups, medicine, and emergency care for low-income families in rural Sindh, operating a mobile clinic reaching 30+ villages.",
     beneficiaryCategory: "healthcare",
     fundingGoalETH: "25",
-    trusteeIndex: null, // default trustee
+    trusteeIndex: 3, // Trustee #3 (Account #8)
     donations: [
       { donor: 0, amount: "4" },
       { donor: 1, amount: "3" },
@@ -86,16 +100,25 @@ const ASSETS = [
 ];
 
 async function seedData(contract, provider) {
-  const trusteeSigner = contract.signer;
-  const trusteeAddress = await trusteeSigner.getAddress();
-  const donors = DONOR_KEYS.map((key) => new ethers.Wallet(key, provider));
-  const demoTrustee = new ethers.Wallet(DEMO_TRUSTEE_KEY, provider);
+  const adminSigner = contract.signer;
 
   console.log("[Seed] Found 0 assets on-chain — seeding demo data...\n");
-  console.log(`[Seed] Loaded ${donors.length} donor wallets\n`);
 
-  // Pre-approve trustees used by demo assets + an extra demo trustee
-  const trusteesToApprove = [trusteeAddress, donors[0].address, demoTrustee.address];
+  // Create donor wallets
+  const donors = DONOR_KEYS.map((key) => new ethers.Wallet(key, provider));
+
+  // Create trustee wallets
+  const trustees = TRUSTEE_KEYS.map((key) => new ethers.Wallet(key, provider));
+  const demoTrustee = new ethers.Wallet(DEMO_TRUSTEE_KEY, provider);
+
+  console.log(`[Seed] Loaded ${donors.length} donors, ${trustees.length} trustees\n`);
+
+  // Pre-approve all trustee wallets + demo trustee (NOT the admin)
+  const trusteesToApprove = [
+    ...trustees.map((t) => t.address),
+    demoTrustee.address,
+  ];
+
   console.log("[Seed] Approving demo trustees...\n");
   for (const addr of trusteesToApprove) {
     const tx = await contract.approveTrustee(addr);
@@ -106,14 +129,12 @@ async function seedData(contract, provider) {
 
   for (let i = 0; i < ASSETS.length; i++) {
     const asset = ASSETS[i];
-    console.log(`[Seed] [${i}] Creating: ${asset.name}`);
+    const trusteeIdx = asset.trusteeIndex;
+    const trusteeWallet = trustees[trusteeIdx];
+    const trusteeAddr = trusteeWallet.address;
 
-    // Resolve trustee address
-    const trusteeAddr =
-      asset.trusteeIndex !== null && asset.trusteeIndex !== undefined
-        ? donors[asset.trusteeIndex].address
-        : trusteeAddress;
-    const isAltTrustee = trusteeAddr !== trusteeAddress;
+    console.log(`[Seed] [${i}] Creating: ${asset.name}`);
+    console.log(`    Trustee: ${trusteeAddr.slice(0, 10)}... (Account #${trusteeIdx + 5})`);
 
     // Create asset
     const tx = await contract.createAsset(
@@ -140,12 +161,10 @@ async function seedData(contract, provider) {
       }
     }
 
-    // Seed disbursements (from trustee — may need alternate signer)
+    // Seed disbursements (signed by the asset's trustee)
     if (asset.disbursements.length > 0) {
       console.log(`    Disbursements:`);
-      const contractForDisburse = isAltTrustee
-        ? contract.connect(donors[asset.trusteeIndex])
-        : contract;
+      const contractForDisburse = contract.connect(trusteeWallet);
       for (const d of asset.disbursements) {
         const recipient = donors[3].address;
         const disburseTx = await contractForDisburse.disburseFunds(
