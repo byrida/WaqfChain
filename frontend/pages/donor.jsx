@@ -6,6 +6,13 @@ import useWallet from "../lib/useWallet";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
+// Demo conversion rate — this is a sandbox flow, not a real exchange rate.
+const PKR_PER_ETH = 350000;
+
+function ethToPkr(eth) {
+  return (parseFloat(eth) * PKR_PER_ETH).toFixed(0);
+}
+
 export default function DonorPortal() {
   const { address, connecting, connect, hasMetaMask } = useWallet();
   const [assets, setAssets] = useState([]);
@@ -74,7 +81,7 @@ export default function DonorPortal() {
       prev.map((a) => (a.id === updatedAsset.id ? updatedAsset : a))
     );
     setSuccessMessage(
-      `Donation of ${updatedAsset.totalDonatedETH} ETH confirmed for "${updatedAsset.name}".`
+      `Donation of ₨${Number(ethToPkr(updatedAsset.totalDonatedETH)).toLocaleString()} confirmed for "${updatedAsset.name}".`
     );
     setTimeout(() => setSuccessMessage(null), 4000);
     // Refresh donation history after successful donation
@@ -185,8 +192,8 @@ export default function DonorPortal() {
                 </p>
               </div>
               <p className="font-ledger text-xl font-semibold text-gilt">
-                {totalDonated.toFixed(4)}{" "}
-                <span className="text-xs font-sans text-ink-soft">ETH total</span>
+                ₨{Number(ethToPkr(totalDonated)).toLocaleString()}{" "}
+                <span className="text-xs font-sans text-ink-soft">total</span>
               </p>
             </div>
             <ul className="divide-y divide-ink/10">
@@ -206,7 +213,7 @@ export default function DonorPortal() {
                       </p>
                     </div>
                     <p className="shrink-0 font-ledger text-sm font-medium text-mihrab">
-                      {d.amountETH} ETH
+                      ₨{Number(ethToPkr(d.amountETH)).toLocaleString()}
                     </p>
                   </li>
                 );
@@ -265,10 +272,7 @@ export default function DonorPortal() {
                   Mobile money donations
                 </p>
                 <p className="font-ledger text-sm font-semibold text-gilt">
-                  {totalPhoneDonated.toFixed(4)} ETH{" "}
-                  <span className="text-xs font-sans text-ink-soft">
-                    (₨{totalPhonePKR.toLocaleString()})
-                  </span>
+                  ₨{Number(ethToPkr(totalPhoneDonated)).toLocaleString()}
                 </p>
               </div>
               <ul className="divide-y divide-ink/10">
@@ -289,7 +293,7 @@ export default function DonorPortal() {
                       </div>
                       <div className="shrink-0 text-right">
                         <p className="font-ledger text-sm font-medium text-mihrab">
-                          {Number(d.amountETH).toFixed(4)} ETH
+                          ₨{Number(ethToPkr(d.amountETH)).toLocaleString()}
                         </p>
                         <p className="text-xs text-ink-soft">
                           ₨{Number(d.amountPKR).toLocaleString()}

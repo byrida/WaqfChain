@@ -8,6 +8,7 @@ const NAV = [
   { href: "/trustee", label: "Trustee" },
   { href: "/beneficiary", label: "Beneficiary" },
   { href: "/shariah", label: "Shariah" },
+  { href: "/admin", label: "Admin" },
 ];
 
 export default function Layout({ children }) {
@@ -50,7 +51,6 @@ export default function Layout({ children }) {
       <footer className="border-t border-ink/10 bg-white">
         <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-2 px-6 py-4 text-xs text-ink-soft">
           <p>WaqfChain — waqf, fully transparent.</p>
-          <p className="font-ledger">Polygon Amoy · chain 80002</p>
         </div>
       </footer>
     </div>

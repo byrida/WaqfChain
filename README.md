@@ -20,12 +20,14 @@ Built for hackathon demos and regional pitches, WaqfChain shows how traditional 
 
 ## Key Features
 
-- **Donor Portal** — Browse available Waqf projects, donate with MetaMask (ETH) or a simulated JazzCash/Easypaisa flow (PKR), and view your complete giving history.
-- **Trustee Portal** — Connect a MetaMask wallet and manage only the assets where your address is registered as trustee. Disburse funds with on-chain records.
-- **Beneficiary Portal** — Public transparency view showing funds collected, funds spent, and an AI-generated impact/compliance report for every project.
-- **Shariah-Compliant Smart Contract** — `WaqfRegistry.sol` enforces irrevocability, perpetuity, and trusteeship directly on-chain.
-- **AI Impact Reports** — Gemini summarizes project activity and flags potential compliance issues in plain language.
+- **Donor Portal** — Browse available Waqf projects, donate with MetaMask (ETH) or a simulated JazzCash/Easypaisa flow (PKR), and view your complete giving history. All amounts displayed in PKR using a fixed conversion rate (1 ETH = ₨350,000).
+- **Trustee Portal** — Three entry options: register with email/password (server generates a custodial wallet automatically), register with your own MetaMask wallet, or connect an existing wallet. All trustees require admin approval before managing assets.
+- **Admin Panel** — Contract owner can review pending trustee applications and approve/reject them. Approval calls `approveTrustee()` on-chain.
+- **Beneficiary Portal** — Public transparency view showing funds collected, funds spent, disbursement history with recipient names, and an AI-generated impact/compliance report for every project.
+- **Shariah-Compliant Smart Contract** — `WaqfRegistry.sol` enforces irrevocability, perpetuity, approved-trustee registry, and trusteeship directly on-chain.
+- **AI Impact Reports** — Gemini summarizes project activity and flags potential compliance issues in plain language (all amounts in PKR).
 - **Dual Payment Flow** — Crypto-native donors use MetaMask; mobile-money donors see a JazzCash/Easypaisa-style checkout (simulated for demo).
+- **Custodial Wallet System** — Trustees registering via email get a server-generated wallet with encrypted private key storage. Disbursement recipients get unique wallets linked to their phone number, preserving on-chain proof without requiring recipients to own MetaMask.
 
 ---
 
@@ -89,9 +91,12 @@ CHAIN_ID=31337
 PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 CONTRACT_ADDRESS=          # fill after running deploy.js
 GEMINI_API_KEY=            # optional — needed for AI reports
+JWT_SECRET=                # random 32+ char string for trustee session tokens
+TRUSTEE_ENCRYPTION_SECRET= # random 32+ char string for encrypting custodial private keys
+OWNER_ADDRESS=             # contract deployer address (admin panel access)
 ```
 
-> For the local demo, use the Hardhat Account #0 private key shown above. For production, use a dedicated server wallet key.
+> For the local demo, use the Hardhat Account #0 private key shown above. For production, use a dedicated server wallet key. Generate `JWT_SECRET` and `TRUSTEE_ENCRYPTION_SECRET` with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`.
 
 #### `frontend/.env`
 
@@ -157,11 +162,12 @@ Go to **http://localhost:3000** in your browser.
 
 Use the top navigation to switch between portals:
 
-- **Home** — Project overview
+- **Home** — Project overview and platform statistics (all amounts in PKR)
 - **Donor** — Browse projects and donate
-- **Trustee** — Connect MetaMask to manage assigned assets
+- **Trustee** — Register, login, or connect wallet to manage assets
 - **Beneficiary** — Public spending transparency + AI reports
 - **Shariah** — Explanation of compliance principles
+- **Admin** — Trustee application management (contract owner only)
 
 ---
 
@@ -174,8 +180,8 @@ WaqfChain currently runs on a **local Hardhat blockchain** for demo purposes. Th
 ## Known Limitations & Future Scope
 
 - **JazzCash / Easypaisa is simulated.** The mobile-money checkout is a UI demo that records a PKR amount off-chain and performs the actual on-chain donation via the platform wallet. Real integration would connect to JazzCash/Easypaisa APIs.
-- **Trustees need MetaMask.** In production, a custodial wallet or social-login wallet system would let non-technical trustees manage funds without installing a browser extension.
-- **Off-chain data is in-memory.** Mobile-money donation records reset when the backend restarts. A future version would use a database.
+- **Custodial key storage is simplified.** The demo encrypts trustee private keys with AES-256-GCM in memory. Production should use AWS KMS, GCP KMS, or a Hardware Security Module.
+- **Off-chain data is in-memory.** Mobile-money donation records and recipient wallets reset when the backend restarts. A future version would use a database.
 - **Urdu language support** is planned to make the donor and beneficiary portals more accessible across Pakistan.
 
 ---

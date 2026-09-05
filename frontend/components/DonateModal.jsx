@@ -3,14 +3,17 @@ import KhatamStar from "./KhatamStar";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
-const QUICK_ETH = ["0.1", "0.25", "0.5", "1"];
-const QUICK_PKR = [500, 1000, 2500, 5000];
+const QUICK_PKR = [500, 1000, 2500, 5000, 10000, 25000];
 
 // Demo conversion rate — this is a sandbox flow, not a real exchange rate.
 const PKR_PER_ETH = 350000;
 
 function pkrToEth(pkr) {
   return (pkr / PKR_PER_ETH).toFixed(6);
+}
+
+function ethToPkr(eth) {
+  return (parseFloat(eth) * PKR_PER_ETH).toFixed(0);
 }
 
 function maskPhone(phone) {
@@ -48,18 +51,21 @@ export default function DonateModal({ asset, onClose, onSuccess }) {
     e.preventDefault();
     setError(null);
 
-    const value = parseFloat(amount);
-    if (!value || value <= 0) {
+    const pkrValue = parseFloat(amount);
+    if (!pkrValue || pkrValue <= 0) {
       setError("Please enter a valid amount greater than 0");
       return;
     }
+
+    // Convert PKR to ETH for the backend call
+    const amountETH = pkrToEth(pkrValue);
 
     setLoading(true);
     try {
       const res = await fetch(`${API_URL}/api/donations`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ assetId: asset.id, amountETH: amount }),
+        body: JSON.stringify({ assetId: asset.id, amountETH }),
       });
 
       const data = await res.json();
@@ -155,7 +161,7 @@ export default function DonateModal({ asset, onClose, onSuccess }) {
         role="dialog"
         aria-modal="true"
         aria-label={`Donate to ${asset.name}`}
-        className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-xl motion-safe:animate-rise"
+        className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-xl max-h-[90vh] flex flex-col motion-safe:animate-rise"
       >
         {/* Header */}
         <div className="flex items-start justify-between gap-4 bg-mihrab px-6 py-5 text-porcelain">
@@ -183,7 +189,7 @@ export default function DonateModal({ asset, onClose, onSuccess }) {
           )}
         </div>
 
-        <div className="p-6">
+        <div className="overflow-y-auto p-6">
           {/* ── Step: choose payment method ── */}
           {step === "choose" && (
             <div>
@@ -255,7 +261,7 @@ export default function DonateModal({ asset, onClose, onSuccess }) {
               <div className="mt-5 rounded-lg bg-porcelain px-4 py-3 text-sm">
                 <span className="text-ink-soft">Collected so far: </span>
                 <span className="font-ledger font-medium text-ink">
-                  {asset.totalDonatedETH} / {asset.fundingGoalETH} ETH
+                  ₨{Number(ethToPkr(asset.totalDonatedETH)).toLocaleString()} / ₨{Number(ethToPkr(asset.fundingGoalETH)).toLocaleString()}
                 </span>
               </div>
             </div>
@@ -273,36 +279,48 @@ export default function DonateModal({ asset, onClose, onSuccess }) {
               </button>
 
               <label htmlFor="donation-amount" className="mb-1.5 block text-sm font-medium text-ink">
-                Amount (ETH)
+                Amount (PKR)
               </label>
               <input
                 id="donation-amount"
                 type="number"
-                step="0.01"
+                step="1"
                 min="0"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                placeholder="e.g. 1.5"
+                placeholder="e.g. 5000"
                 className="field mb-3 font-ledger"
                 autoFocus
               />
 
               <div className="mb-5 flex flex-wrap gap-2">
-                {QUICK_ETH.map((quick) => (
+                {QUICK_PKR.map((quick) => (
                   <button
                     key={quick}
                     type="button"
-                    onClick={() => setAmount(quick)}
+                    onClick={() => setAmount(String(quick))}
                     className={`rounded-full border px-3 py-1 font-ledger text-xs transition ${
-                      amount === quick
+                      amount === String(quick)
                         ? "border-zellige bg-zellige text-white"
                         : "border-ink/15 text-ink-soft hover:border-zellige hover:text-zellige-deep"
                     }`}
                   >
-                    {quick} ETH
+                    ₨{quick.toLocaleString()}
                   </button>
                 ))}
               </div>
+
+              {parseFloat(amount) > 0 && (
+                <p className="mb-4 rounded-lg bg-porcelain px-3 py-2 text-xs text-ink-soft">
+                  You are donating{" "}
+                  <span className="font-ledger font-medium text-ink">
+                    {pkrToEth(parseFloat(amount))} ETH
+                  </span>{" "}
+                  <span className="text-ink/50">
+                    (1 ETH = ₨{PKR_PER_ETH.toLocaleString()})
+                  </span>
+                </p>
+              )}
 
               {error && (
                 <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
@@ -478,7 +496,7 @@ export default function DonateModal({ asset, onClose, onSuccess }) {
                 ₨{receipt.pkr.toLocaleString()} received
               </p>
               <p className="mt-1 text-sm text-ink-soft">
-                {receipt.amountETH} ETH given to {asset.name}
+                ₨{Number(ethToPkr(receipt.amountETH)).toLocaleString()} given to {asset.name}
               </p>
 
               <div className="mt-5 space-y-1.5 rounded-xl bg-porcelain px-4 py-3 text-left font-ledger text-xs text-ink-soft">
@@ -498,7 +516,7 @@ export default function DonateModal({ asset, onClose, onSuccess }) {
                 </p>
                 <p className="flex justify-between gap-4">
                   <span>New total collected</span>
-                  <span className="text-ink">{receipt.asset.totalDonatedETH} ETH</span>
+                  <span className="text-ink">₨{Number(ethToPkr(receipt.asset.totalDonatedETH)).toLocaleString()}</span>
                 </p>
               </div>
 

@@ -4,6 +4,13 @@ import KhatamStar from "../components/KhatamStar";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
+// Demo conversion rate — this is a sandbox flow, not a real exchange rate.
+const PKR_PER_ETH = 350000;
+
+function ethToPkr(eth) {
+  return (parseFloat(eth) * PKR_PER_ETH).toFixed(0);
+}
+
 const NAV = [
   { href: "/", label: "Home" },
   { href: "/donor", label: "Donor" },
@@ -95,10 +102,8 @@ export default function Home() {
         if (!cancelled) {
           setStats({
             assets: assets.length,
-            raised: raised.toFixed(2),
-            disbursed: disbursedPerAsset
-              .reduce((sum, x) => sum + x, 0)
-              .toFixed(2),
+            raised: Number(ethToPkr(raised)).toLocaleString(),
+            disbursed: Number(ethToPkr(disbursedPerAsset.reduce((sum, x) => sum + x, 0))).toLocaleString(),
           });
         }
       } catch {
@@ -147,7 +152,7 @@ export default function Home() {
 
           <div className="pb-16 pt-14 sm:pb-20 sm:pt-16">
             <p className="font-ledger text-xs tracking-[0.2em] text-gilt">
-              WAQF ON BLOCKCHAIN · POLYGON AMOY
+              WAQF ON BLOCKCHAIN
             </p>
             <h1 className="mt-5 max-w-3xl font-display text-4xl font-semibold leading-tight sm:text-6xl">
               Your donation lives forever.
@@ -173,7 +178,7 @@ export default function Home() {
                     Total collected
                   </dt>
                   <dd className="mt-1 font-ledger text-3xl text-gilt">
-                    {stats.raised} <span className="text-base text-porcelain/55">ETH</span>
+                    ₨{stats.raised}
                   </dd>
                 </div>
                 <div>
@@ -181,7 +186,7 @@ export default function Home() {
                     Spent
                   </dt>
                   <dd className="mt-1 font-ledger text-3xl text-gilt">
-                    {stats.disbursed} <span className="text-base text-porcelain/55">ETH</span>
+                    ₨{stats.disbursed}
                   </dd>
                 </div>
               </dl>
@@ -242,7 +247,6 @@ export default function Home() {
       <footer className="border-t border-white/10">
         <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-2 px-6 py-4 text-xs text-porcelain/55">
           <p>WaqfChain — waqf, fully transparent.</p>
-          <p className="font-ledger">Polygon Amoy · chain 80002</p>
         </div>
       </footer>
     </div>
