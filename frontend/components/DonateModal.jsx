@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import KhatamStar from "./KhatamStar";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
@@ -44,6 +45,14 @@ export default function DonateModal({ asset, onClose, onSuccess }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose, step]);
+
+  // Lock body scroll while the modal is open so the page behind stays still
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, []);
 
   // ─── Existing wallet flow (unchanged behaviour) ────────────────────────────
 
@@ -150,9 +159,16 @@ export default function DonateModal({ asset, onClose, onSuccess }) {
 
   // ─── Render ────────────────────────────────────────────────────────────────
 
-  return (
+  // Render through a portal to document.body. The card grid wraps each card
+  // in an animate-rise element that keeps a transform after the animation,
+  // creating a stacking context that traps z-index inside the card — cards in
+  // later rows would otherwise paint over this modal. At body level, z-50
+  // overlays the whole page.
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-mihrab-deep/70 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/60 p-4"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget && step !== "processing") onClose();
       }}
@@ -527,6 +543,7 @@ export default function DonateModal({ asset, onClose, onSuccess }) {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
