@@ -16,6 +16,7 @@ module.exports = {
     localhost: {
       url: "http://127.0.0.1:8545",
       chainId: 31337,
+      // the line below was removed by AI
       // accounts: PRIVATE_KEY ? [PRIVATE_KEY] : [],
     },
     amoy: {
