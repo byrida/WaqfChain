@@ -36,7 +36,7 @@ export default function AIReportSection({ assetId }) {
         <button
           onClick={handleGenerate}
           disabled={loading}
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-gilt px-4 py-2 text-sm font-semibold text-mihrab transition hover:bg-gilt-soft active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex items-center justify-center text-left gap-2 rounded-lg bg-gilt/60 px-4 py-2 text-xs font-semibold text-mihrab transition hover:bg-gilt/80 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
         >
           <KhatamStar className="h-3.5 w-3.5" />
           {loading ? "Generating..." : "Generate AI report"}
