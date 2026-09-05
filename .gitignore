@@ -27,6 +27,12 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# SQLite database (off-chain identity data)
+backend/data/
+*.db
+*.db-wal
+*.db-shm
+
 # OS files
 .DS_Store
 Thumbs.db

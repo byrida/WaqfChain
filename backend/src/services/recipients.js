@@ -6,58 +6,37 @@
  * This module generates blockchain wallets server-side for real-world
  * recipients (e.g., a school, a contractor, a family) who may not own
  * a crypto wallet themselves. The private key is encrypted and stored
- * in memory, linked to their phone number.
+ * in SQLite, linked to their phone number.
  *
  * This preserves genuine on-chain proof: each disbursement goes to a
  * unique, real wallet address — verifiable on any block explorer.
  *
  * In production, consider:
- *   - Using a proper database (Postgres, MongoDB) instead of in-memory Map
  *   - AWS KMS / GCP KMS for key management instead of local encryption
  *   - Or letting recipients claim funds via a mobile money integration
  */
 
-const crypto = require("crypto");
 const { ethers } = require("ethers");
+const db = require("./database");
+const { encryptPrivateKey, decryptPrivateKey } = require("./crypto");
 
-// ─── Symmetric encryption for recipient private keys ────────────────────────────
+// Encryption functions are imported from ./crypto module
+// The master secret is validated and the key is derived at module load time
 
-const ENCRYPTION_SECRET = process.env.TRUSTEE_ENCRYPTION_SECRET;
-if (!ENCRYPTION_SECRET) {
-  throw new Error(
-    "TRUSTEE_ENCRYPTION_SECRET is required for recipient wallet encryption."
-  );
-}
+// ─── Prepared statements ────────────────────────────────────────────────────────
 
-const ENCRYPTION_KEY = crypto
-  .createHash("sha256")
-  .update(ENCRYPTION_SECRET)
-  .digest();
+const insertRecipient = db.prepare(`
+  INSERT INTO recipients (phone, name, wallet_address, encrypted_private_key, created_at)
+  VALUES (@phone, @name, @walletAddress, @encryptedPrivateKey, @createdAt)
+`);
 
-function encryptPrivateKey(plainKey) {
-  const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipheriv("aes-256-gcm", ENCRYPTION_KEY, iv);
-  let encrypted = cipher.update(plainKey, "utf8", "hex");
-  encrypted += cipher.final("hex");
-  const authTag = cipher.getAuthTag().toString("hex");
-  return `${iv.toString("hex")}:${authTag}:${encrypted}`;
-}
+const updateName = db.prepare(`UPDATE recipients SET name = ? WHERE phone = ?`);
 
-function decryptPrivateKey(encryptedBlob) {
-  const [ivHex, authTagHex, ciphertext] = encryptedBlob.split(":");
-  const iv = Buffer.from(ivHex, "hex");
-  const authTag = Buffer.from(authTagHex, "hex");
-  const decipher = crypto.createDecipheriv("aes-256-gcm", ENCRYPTION_KEY, iv);
-  decipher.setAuthTag(authTag);
-  let decrypted = decipher.update(ciphertext, "hex", "utf8");
-  decrypted += decipher.final("utf8");
-  return decrypted;
-}
+const selectByPhone = db.prepare(`SELECT * FROM recipients WHERE phone = ?`);
+const selectByAddress = db.prepare(`SELECT * FROM recipients WHERE wallet_address = ?`);
+const selectAll = db.prepare(`SELECT * FROM recipients`);
 
-// ─── In-memory recipient store ──────────────────────────────────────────────────
-// ⚠️  Demo only — use a real database in production.
-
-const recipients = new Map(); // normalized phone → recipient record
+// ─── Functions ──────────────────────────────────────────────────────────────────
 
 /**
  * Normalizes a phone number for consistent lookup.
@@ -81,15 +60,16 @@ function getOrCreateRecipient(phone, name) {
   const normalizedPhone = normalizePhone(phone);
 
   // Check if recipient already exists
-  if (recipients.has(normalizedPhone)) {
-    const existing = recipients.get(normalizedPhone);
+  const existing = selectByPhone.get(normalizedPhone);
+  if (existing) {
     // Update name if a new one is provided and different
-    if (name && name.trim() && name.trim() !== existing.name) {
-      existing.name = name.trim();
+    const newName = name && name.trim() ? name.trim() : existing.name;
+    if (newName !== existing.name) {
+      updateName.run(newName, normalizedPhone);
     }
     return {
-      walletAddress: existing.walletAddress,
-      name: existing.name,
+      walletAddress: existing.wallet_address,
+      name: newName,
       phone: existing.phone,
       isNew: false,
     };
@@ -107,7 +87,7 @@ function getOrCreateRecipient(phone, name) {
     createdAt: new Date().toISOString(),
   };
 
-  recipients.set(normalizedPhone, record);
+  insertRecipient.run(record);
 
   return {
     walletAddress: record.walletAddress,
@@ -122,13 +102,13 @@ function getOrCreateRecipient(phone, name) {
  */
 function findByPhone(phone) {
   const normalizedPhone = normalizePhone(phone);
-  const record = recipients.get(normalizedPhone);
-  if (!record) return null;
+  const row = selectByPhone.get(normalizedPhone);
+  if (!row) return null;
   return {
-    walletAddress: record.walletAddress,
-    name: record.name,
-    phone: record.phone,
-    createdAt: record.createdAt,
+    walletAddress: row.wallet_address,
+    name: row.name,
+    phone: row.phone,
+    createdAt: row.created_at,
   };
 }
 
@@ -137,32 +117,25 @@ function findByPhone(phone) {
  * Used to resolve names in disbursement history.
  */
 function findByAddress(address) {
-  for (const record of recipients.values()) {
-    if (record.walletAddress.toLowerCase() === address.toLowerCase()) {
-      return {
-        walletAddress: record.walletAddress,
-        name: record.name,
-        phone: record.phone,
-      };
-    }
-  }
-  return null;
+  const row = selectByAddress.get(address);
+  if (!row) return null;
+  return {
+    walletAddress: row.wallet_address,
+    name: row.name,
+    phone: row.phone,
+  };
 }
 
 /**
  * Returns all recipients (sanitized — no private keys).
  */
 function listAll() {
-  const result = [];
-  for (const record of recipients.values()) {
-    result.push({
-      walletAddress: record.walletAddress,
-      name: record.name,
-      phone: record.phone,
-      createdAt: record.createdAt,
-    });
-  }
-  return result;
+  return selectAll.all().map((row) => ({
+    walletAddress: row.wallet_address,
+    name: row.name,
+    phone: row.phone,
+    createdAt: row.created_at,
+  }));
 }
 
 /**
@@ -171,9 +144,9 @@ function listAll() {
  */
 function getDecryptedKey(phone) {
   const normalizedPhone = normalizePhone(phone);
-  const record = recipients.get(normalizedPhone);
-  if (!record) return null;
-  return decryptPrivateKey(record.encryptedPrivateKey);
+  const row = selectByPhone.get(normalizedPhone);
+  if (!row) return null;
+  return decryptPrivateKey(row.encrypted_private_key);
 }
 
 module.exports = {

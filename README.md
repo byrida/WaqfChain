@@ -27,7 +27,8 @@ Built for hackathon demos and regional pitches, WaqfChain shows how traditional 
 - **Shariah-Compliant Smart Contract** — `WaqfRegistry.sol` enforces irrevocability, perpetuity, approved-trustee registry, and trusteeship directly on-chain.
 - **AI Impact Reports** — Gemini summarizes project activity and flags potential compliance issues in plain language (all amounts in PKR).
 - **Dual Payment Flow** — Crypto-native donors use MetaMask; mobile-money donors see a JazzCash/Easypaisa-style checkout (simulated for demo).
-- **Custodial Wallet System** — Trustees registering via email get a server-generated wallet with encrypted private key storage. Disbursement recipients get unique wallets linked to their phone number, preserving on-chain proof without requiring recipients to own MetaMask.
+- **Custodial Wallet System** — Trustees registering via email get a server-generated wallet with encrypted private key storage (AES-256-GCM with scrypt-derived key). Disbursement recipients get unique wallets linked to their phone number, preserving on-chain proof without requiring recipients to own MetaMask.
+- **SQLite Persistence** — Off-chain identity data (trustee accounts, recipient wallets, mobile-money donations) persists in a local SQLite database across backend restarts.
 
 ---
 
@@ -180,8 +181,8 @@ WaqfChain currently runs on a **local Hardhat blockchain** for demo purposes. Th
 ## Known Limitations & Future Scope
 
 - **JazzCash / Easypaisa is simulated.** The mobile-money checkout is a UI demo that records a PKR amount off-chain and performs the actual on-chain donation via the platform wallet. Real integration would connect to JazzCash/Easypaisa APIs.
-- **Custodial key storage is simplified.** The demo encrypts trustee private keys with AES-256-GCM in memory. Production should use AWS KMS, GCP KMS, or a Hardware Security Module.
-- **Off-chain data is in-memory.** Mobile-money donation records and recipient wallets reset when the backend restarts. A future version would use a database.
+- **Custodial key storage is simplified.** The demo encrypts trustee private keys with AES-256-GCM using a scrypt-derived key stored in SQLite. Production should use AWS KMS, GCP KMS, or a Hardware Security Module.
+- **SQLite is single-file.** Suitable for demos and small deployments. Production should migrate to PostgreSQL or MongoDB for scalability and concurrent access.
 - **Urdu language support** is planned to make the donor and beneficiary portals more accessible across Pakistan.
 
 ---

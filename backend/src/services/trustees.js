@@ -1,10 +1,10 @@
 /**
- * Trustee authentication service — in-memory store with crypto helpers.
+ * Trustee authentication service — SQLite-backed store with crypto helpers.
  *
  * ⚠️  HACKATHON DEMO ONLY — CUSTODIAL KEY STORAGE
  * ─────────────────────────────────────────────────
  * This module generates blockchain wallets server-side and stores the
- * encrypted private key in memory. This is a simplified custodial pattern
+ * encrypted private key in SQLite. This is a simplified custodial pattern
  * suitable for a hackathon demo.
  *
  * In production you MUST NOT store raw or encrypted private keys in your
@@ -17,9 +17,10 @@
  * to demonstrate the concept — it does NOT replace a real KMS.
  */
 
-const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
 const { ethers } = require("ethers");
+const db = require("./database");
+const { encryptPrivateKey, decryptPrivateKey } = require("./crypto");
 
 // ─── Gas funding for custodial wallets ───────────────────────────────────────────
 // In the custodial model, the backend generates wallets that need ETH for gas.
@@ -53,57 +54,23 @@ async function fundWalletForGas(address) {
   }
 }
 
-// ─── Symmetric encryption for private keys ─────────────────────────────────────
+// Encryption functions are imported from ./crypto module
+// The master secret is validated and the key is derived at module load time
 
-/**
- * AES-256-GCM key derived from the TRUSTEE_ENCRYPTION_SECRET env var.
- * Must be a 32-byte (256-bit) hex string or a passphrase that we hash to 32 bytes.
- */
-const ENCRYPTION_SECRET = process.env.TRUSTEE_ENCRYPTION_SECRET;
-if (!ENCRYPTION_SECRET) {
-  throw new Error(
-    "TRUSTEE_ENCRYPTION_SECRET is required. " +
-      "Set it in backend/.env — use a random 32+ character string."
-  );
-}
+// ─── Prepared statements ────────────────────────────────────────────────────────
 
-// Derive a fixed 32-byte key from the secret (SHA-256)
-const ENCRYPTION_KEY = crypto
-  .createHash("sha256")
-  .update(ENCRYPTION_SECRET)
-  .digest();
+const insertTrustee = db.prepare(`
+  INSERT INTO trustees (email, hashed_password, encrypted_private_key, wallet_address, org_name, description, phone, registration_type, status, created_at)
+  VALUES (@email, @hashedPassword, @encryptedPrivateKey, @walletAddress, @orgName, @description, @phone, @registrationType, @status, @createdAt)
+`);
 
-/**
- * Encrypts a plaintext string (private key) with AES-256-GCM.
- * Returns "iv:authTag:ciphertext" — all hex-encoded.
- */
-function encryptPrivateKey(plainKey) {
-  const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipheriv("aes-256-gcm", ENCRYPTION_KEY, iv);
-  let encrypted = cipher.update(plainKey, "utf8", "hex");
-  encrypted += cipher.final("hex");
-  const authTag = cipher.getAuthTag().toString("hex");
-  return `${iv.toString("hex")}:${authTag}:${encrypted}`;
-}
+const selectByEmail = db.prepare(`SELECT * FROM trustees WHERE email = ?`);
+const selectByAddress = db.prepare(`SELECT * FROM trustees WHERE wallet_address = ?`);
+const selectPending = db.prepare(`SELECT * FROM trustees WHERE status = 'pending'`);
+const selectAll = db.prepare(`SELECT * FROM trustees`);
+const updateStatus = db.prepare(`UPDATE trustees SET status = ? WHERE email = ?`);
 
-/**
- * Decrypts an "iv:authTag:ciphertext" string back to the raw private key.
- */
-function decryptPrivateKey(encryptedBlob) {
-  const [ivHex, authTagHex, ciphertext] = encryptedBlob.split(":");
-  const iv = Buffer.from(ivHex, "hex");
-  const authTag = Buffer.from(authTagHex, "hex");
-  const decipher = crypto.createDecipheriv("aes-256-gcm", ENCRYPTION_KEY, iv);
-  decipher.setAuthTag(authTag);
-  let decrypted = decipher.update(ciphertext, "hex", "utf8");
-  decrypted += decipher.final("utf8");
-  return decrypted;
-}
-
-// ─── In-memory trustee store ───────────────────────────────────────────────────
-// ⚠️  Demo only — use a real database (Postgres, MongoDB, etc.) in production.
-
-const trustees = new Map(); // email → trustee record
+// ─── Functions ──────────────────────────────────────────────────────────────────
 
 /**
  * Creates a new trustee record:
@@ -111,16 +78,10 @@ const trustees = new Map(); // email → trustee record
  *   - Encrypts the private key with AES-256-GCM
  *   - Hashes the password with bcrypt (12 rounds)
  *   - Sets status to "pending" until the contract owner approves on-chain
- *
- * @param {Object} params
- * @param {string} params.email
- * @param {string} params.password
- * @param {string} params.orgName       — organization / institution name
- * @param {string} params.description   — short description of the org/cause
- * @param {string} params.phone         — contact phone number
  */
 async function createTrustee({ email, password, orgName, description, phone }) {
-  if (trustees.has(email.toLowerCase())) {
+  const existing = selectByEmail.get(email.toLowerCase());
+  if (existing) {
     throw new Error("A trustee with this email already exists.");
   }
 
@@ -147,7 +108,7 @@ async function createTrustee({ email, password, orgName, description, phone }) {
     createdAt: new Date().toISOString(),
   };
 
-  trustees.set(email.toLowerCase(), record);
+  insertTrustee.run(record);
 
   // Fund the generated wallet with gas from the deployer account
   await fundWalletForGas(wallet.address);
@@ -160,13 +121,13 @@ async function createTrustee({ email, password, orgName, description, phone }) {
  * or null if credentials are invalid.
  */
 async function verifyTrustee(email, password) {
-  const record = trustees.get(email.toLowerCase());
-  if (!record) return null;
+  const row = selectByEmail.get(email.toLowerCase());
+  if (!row) return null;
 
-  const match = await bcrypt.compare(password, record.hashedPassword);
+  const match = await bcrypt.compare(password, row.hashed_password);
   if (!match) return null;
 
-  return record;
+  return mapRow(row);
 }
 
 /**
@@ -177,28 +138,25 @@ async function verifyTrustee(email, password) {
  *     the raw key into application memory.
  */
 function getDecryptedKey(email) {
-  const record = trustees.get(email.toLowerCase());
-  if (!record) return null;
-  return decryptPrivateKey(record.encryptedPrivateKey);
+  const record = selectByEmail.get(email.toLowerCase());
+  if (!record || !record.encrypted_private_key) return null;
+  return decryptPrivateKey(record.encrypted_private_key);
 }
 
 /**
  * Looks up a trustee by email.
  */
 function findByEmail(email) {
-  return trustees.get(email.toLowerCase()) || null;
+  const row = selectByEmail.get(email.toLowerCase());
+  return row ? mapRow(row) : null;
 }
 
 /**
  * Looks up a trustee by wallet address.
  */
 function findByAddress(address) {
-  for (const record of trustees.values()) {
-    if (record.walletAddress.toLowerCase() === address.toLowerCase()) {
-      return record;
-    }
-  }
-  return null;
+  const row = selectByAddress.get(address);
+  return row ? mapRow(row) : null;
 }
 
 // ─── Admin helpers ─────────────────────────────────────────────────────────────
@@ -207,24 +165,14 @@ function findByAddress(address) {
  * Returns all trustee records with "pending" status (sanitized).
  */
 function listPending() {
-  const result = [];
-  for (const record of trustees.values()) {
-    if (record.status === "pending") {
-      result.push(sanitize(record));
-    }
-  }
-  return result;
+  return selectPending.all().map((row) => sanitize(mapRow(row)));
 }
 
 /**
  * Returns all trustee records regardless of status (sanitized).
  */
 function listAll() {
-  const result = [];
-  for (const record of trustees.values()) {
-    result.push(sanitize(record));
-  }
-  return result;
+  return selectAll.all().map((row) => sanitize(mapRow(row)));
 }
 
 /**
@@ -232,13 +180,13 @@ function listAll() {
  * The caller must also call approveTrustee() on-chain separately.
  */
 function setStatus(email, status) {
-  const record = trustees.get(email.toLowerCase());
+  const record = selectByEmail.get(email.toLowerCase());
   if (!record) throw new Error("Trustee not found.");
   if (!["pending", "approved", "rejected"].includes(status)) {
     throw new Error("Invalid status.");
   }
-  record.status = status;
-  return sanitize(record);
+  updateStatus.run(status, email.toLowerCase());
+  return sanitize(mapRow({ ...record, status }));
 }
 
 /**
@@ -257,15 +205,14 @@ function sanitize(record) {
  * Still requires email + password for portal login.
  */
 async function registerWithWallet({ email, password, walletAddress, orgName, description, phone }) {
-  if (trustees.has(email.toLowerCase())) {
+  const existingEmail = selectByEmail.get(email.toLowerCase());
+  if (existingEmail) {
     throw new Error("A trustee with this email already exists.");
   }
 
-  // Check wallet address isn't already registered
-  for (const record of trustees.values()) {
-    if (record.walletAddress.toLowerCase() === walletAddress.toLowerCase()) {
-      throw new Error("This wallet address is already registered.");
-    }
+  const existingAddress = selectByAddress.get(walletAddress);
+  if (existingAddress) {
+    throw new Error("This wallet address is already registered.");
   }
 
   const saltRounds = 12;
@@ -284,8 +231,26 @@ async function registerWithWallet({ email, password, walletAddress, orgName, des
     createdAt: new Date().toISOString(),
   };
 
-  trustees.set(email.toLowerCase(), record);
+  insertTrustee.run(record);
   return sanitize(record);
+}
+
+// ─── Row mapper ─────────────────────────────────────────────────────────────────
+
+function mapRow(row) {
+  if (!row) return null;
+  return {
+    email: row.email,
+    hashedPassword: row.hashed_password,
+    encryptedPrivateKey: row.encrypted_private_key,
+    walletAddress: row.wallet_address,
+    orgName: row.org_name,
+    description: row.description,
+    phone: row.phone,
+    registrationType: row.registration_type,
+    status: row.status,
+    createdAt: row.created_at,
+  };
 }
 
 module.exports = {
