@@ -19,6 +19,8 @@
 
 const bcrypt = require("bcryptjs");
 const { ethers } = require("ethers");
+const fs = require("fs");
+const path = require("path");
 const db = require("./database");
 const { encryptPrivateKey, decryptPrivateKey } = require("./crypto");
 
@@ -68,6 +70,7 @@ const selectByEmail = db.prepare(`SELECT * FROM trustees WHERE email = ?`);
 const selectByAddress = db.prepare(`SELECT * FROM trustees WHERE wallet_address = ?`);
 const selectPending = db.prepare(`SELECT * FROM trustees WHERE status = 'pending'`);
 const selectAll = db.prepare(`SELECT * FROM trustees`);
+const selectApproved = db.prepare(`SELECT * FROM trustees WHERE status = 'approved'`);
 const updateStatus = db.prepare(`UPDATE trustees SET status = ? WHERE email = ?`);
 
 // ─── Functions ──────────────────────────────────────────────────────────────────
@@ -176,6 +179,99 @@ function listAll() {
 }
 
 /**
+ * Returns all trustee records with "approved" backend status (sanitized).
+ */
+function listApproved() {
+  return selectApproved.all().map((row) => sanitize(mapRow(row)));
+}
+
+// ─── On-chain resync helpers ─────────────────────────────────────────────────────
+
+const LAST_SYNCED_PATH = path.join(__dirname, "../../data/last-synced-contract.json");
+
+function getLastSyncedContractAddress() {
+  try {
+    if (fs.existsSync(LAST_SYNCED_PATH)) {
+      const data = JSON.parse(fs.readFileSync(LAST_SYNCED_PATH, "utf8"));
+      return data.contractAddress || null;
+    }
+  } catch {
+    // ignore read/parse errors
+  }
+  return null;
+}
+
+function setLastSyncedContractAddress(address) {
+  try {
+    const payload = {
+      contractAddress: address,
+      syncedAt: new Date().toISOString(),
+    };
+    fs.writeFileSync(LAST_SYNCED_PATH, JSON.stringify(payload, null, 2));
+  } catch (err) {
+    console.warn("[Trustees] Could not write last-synced contract address:", err.message);
+  }
+}
+
+/**
+ * Calls approveTrustee() on the supplied contract for every trustee whose
+ * backend record is marked "approved". This is used after a contract redeploy
+ * to bring the new contract's approvedTrustees mapping back in sync with the
+ * backend database.
+ *
+ * The contract instance must be connected to an owner signer.
+ */
+async function syncApprovedTrusteesWithContract(contract) {
+  const approved = listApproved();
+  if (approved.length === 0) {
+    console.log("[Trustees] No approved trustees in backend to resync.");
+    return { synced: 0, skipped: 0 };
+  }
+
+  console.log(`[Trustees] Resyncing ${approved.length} approved trustee(s) with current contract...`);
+  let synced = 0;
+  let skipped = 0;
+
+  for (const trustee of approved) {
+    try {
+      const tx = await contract.approveTrustee(trustee.walletAddress);
+      await tx.wait();
+      console.log(`[Trustees] Re-approved on-chain: ${trustee.email} (${trustee.walletAddress.slice(0, 10)}...)`);
+      synced++;
+    } catch (err) {
+      const reason = err.reason || err.message || "";
+      if (reason.includes("already approved") || reason.includes("trustee already approved")) {
+        console.log(`[Trustees] Already approved on-chain: ${trustee.email}`);
+        skipped++;
+      } else {
+        console.warn(`[Trustees] Could not re-approve ${trustee.email}:`, reason);
+        skipped++;
+      }
+    }
+  }
+
+  console.log(`[Trustees] Resync complete — ${synced} synced, ${skipped} skipped.\n`);
+  return { synced, skipped };
+}
+
+/**
+ * Resyncs approved trustees only when the contract address has changed since
+ * the last successful sync. Persists the last synced address so restarts
+ * against the same contract do not repeat the work.
+ */
+async function resyncApprovedTrusteesIfChanged(contract, currentContractAddress) {
+  const last = getLastSyncedContractAddress();
+  if (last && last.toLowerCase() === currentContractAddress.toLowerCase()) {
+    console.log(`[Trustees] Contract address unchanged (${currentContractAddress}) — skipping resync.`);
+    return { synced: 0, skipped: 0, unchanged: true };
+  }
+
+  const result = await syncApprovedTrusteesWithContract(contract);
+  setLastSyncedContractAddress(currentContractAddress);
+  return result;
+}
+
+/**
  * Marks a trustee as "approved" (backend status).
  * The caller must also call approveTrustee() on-chain separately.
  */
@@ -264,6 +360,9 @@ module.exports = {
   decryptPrivateKey,
   listPending,
   listAll,
+  listApproved,
   setStatus,
   sanitize,
+  syncApprovedTrusteesWithContract,
+  resyncApprovedTrusteesIfChanged,
 };

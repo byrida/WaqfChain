@@ -14,6 +14,7 @@ const router = express.Router();
 const jwt = require("jsonwebtoken");
 const { ethers } = require("ethers");
 const trustees = require("../services/trustees");
+const bc = require("../services/blockchain");
 const { requireAuth, JWT_SECRET } = require("../middleware/auth");
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -128,18 +129,27 @@ router.get("/me", requireAuth, (req, res) => {
 
 // ─── GET /api/trustee/status/:address ──────────────────────────────────────────
 // Returns the application status for a wallet address (public — no auth needed).
-router.get("/status/:address", (req, res) => {
-  const record = trustees.findByAddress(req.params.address);
-  if (!record) {
-    return res.json({ address: req.params.address, status: "unknown" });
+// Also queries the LIVE on-chain approvedTrustees mapping so callers never rely
+// on a stale database flag.
+router.get("/status/:address", async (req, res) => {
+  try {
+    const address = req.params.address;
+    const isApprovedOnChain = await bc.isApprovedTrustee(address);
+    const record = trustees.findByAddress(address);
+    if (!record) {
+      return res.json({ address, status: "unknown", isApprovedOnChain });
+    }
+    res.json({
+      address: record.walletAddress,
+      status: record.status,
+      isApprovedOnChain,
+      orgName: record.orgName,
+      email: record.email,
+      registrationType: record.registrationType,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.reason || err.message });
   }
-  res.json({
-    address: record.walletAddress,
-    status: record.status,
-    orgName: record.orgName,
-    email: record.email,
-    registrationType: record.registrationType,
-  });
 });
 
 module.exports = router;

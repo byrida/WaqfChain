@@ -1,6 +1,8 @@
 // WaqfChain — deploy WaqfRegistry to local Hardhat node or Polygon Amoy
 // Seeds 4 waqf assets with realistic data, donations, and disbursements
 const hre = require("hardhat");
+const fs = require("fs");
+const path = require("path");
 
 // Hardhat local node pre-funded accounts (publicly documented in Hardhat docs)
 //
@@ -97,6 +99,17 @@ const ASSETS = [
   },
 ];
 
+async function syncBackendApprovedTrustees(contract) {
+  try {
+    // Load backend env so the trustees service can initialize its database/crypto.
+    require("dotenv").config({ path: path.join(__dirname, "../../backend/.env") });
+    const trustees = require("../../backend/src/services/trustees");
+    await trustees.syncApprovedTrusteesWithContract(contract);
+  } catch (err) {
+    console.warn("[Deploy] Could not sync backend-approved trustees:", err.message);
+  }
+}
+
 async function main() {
   const signers = await ethers.getSigners();
   const deployer = signers[0];
@@ -144,6 +157,22 @@ async function main() {
   const registry = await WaqfRegistry.deploy(deployer.address);
   await registry.waitForDeployment();
 
+  const address = await registry.getAddress();
+  console.log("WaqfRegistry deployed to:", address);
+  console.log("\nSave this address — you'll need it for the frontend and backend.\n");
+
+  // Persist deployed address for frontend/backend discovery and resync detection.
+  const deployedAddressesPath = path.join(__dirname, "..", "deployed-addresses.json");
+  fs.writeFileSync(
+    deployedAddressesPath,
+    JSON.stringify({ WaqfRegistry: address }, null, 2)
+  );
+  console.log(`Deployed addresses written to ${deployedAddressesPath}\n`);
+
+  // Re-approve any trustees that were already approved in the backend DB on the
+  // freshly deployed contract, so local redeploys don't require manual admin work.
+  await syncBackendApprovedTrustees(registry);
+
   // Pre-approve all trustee wallets (NOT the admin/deployer)
   const trusteesToApprove = [
     ...trustees.map((t) => t.address),
@@ -152,15 +181,20 @@ async function main() {
 
   console.log("─── Approving demo trustees ─────────────────────────────────\n");
   for (const trusteeAddr of trusteesToApprove) {
-    const tx = await registry.approveTrustee(trusteeAddr);
-    await tx.wait();
-    console.log(`  Approved trustee: ${trusteeAddr.slice(0, 10)}...`);
+    try {
+      const tx = await registry.approveTrustee(trusteeAddr);
+      await tx.wait();
+      console.log(`  Approved trustee: ${trusteeAddr.slice(0, 10)}...`);
+    } catch (err) {
+      const reason = err.reason || err.message || "";
+      if (reason.includes("already approved") || reason.includes("trustee already approved")) {
+        console.log(`  Trustee already approved: ${trusteeAddr.slice(0, 10)}...`);
+      } else {
+        console.warn(`  Could not approve trustee ${trusteeAddr.slice(0, 10)}...:`, reason);
+      }
+    }
   }
   console.log();
-
-  const address = await registry.getAddress();
-  console.log("WaqfRegistry deployed to:", address);
-  console.log("\nSave this address — you'll need it for the frontend and backend.\n");
 
   // Seed all assets
   console.log("─── Seeding waqf assets ─────────────────────────────────────\n");

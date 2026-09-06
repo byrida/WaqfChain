@@ -53,18 +53,26 @@ router.post("/trustees/approve", async (req, res) => {
     if (!record) {
       return res.status(404).json({ error: "Trustee not found." });
     }
-    if (record.status === "approved") {
-      return res.status(409).json({ error: "Trustee is already approved." });
+    const isApprovedOnChain = await bc.isApprovedTrustee(record.walletAddress);
+    if (record.status === "approved" && isApprovedOnChain) {
+      return res.status(409).json({ error: "Trustee is already approved on-chain and in the backend." });
     }
 
-    // 1. Approve on-chain (calls approveTrustee on the smart contract)
-    const { txHash } = await bc.approveTrusteeOnChain(record.walletAddress);
+    // 1. Approve on-chain if the current contract does not already have this trustee.
+    //    This makes the admin approve action idempotent after a contract redeploy.
+    let txHash = null;
+    if (!isApprovedOnChain) {
+      const result = await bc.approveTrusteeOnChain(record.walletAddress);
+      txHash = result.txHash;
+    }
 
     // 2. Update backend status
     const updated = trustees.setStatus(email, "approved");
 
     res.json({
-      message: `Trustee ${email} approved on-chain.`,
+      message: txHash
+        ? `Trustee ${email} approved on-chain.`
+        : `Trustee ${email} was already approved on-chain; backend status updated.`,
       txHash,
       trustee: updated,
     });

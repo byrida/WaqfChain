@@ -13,11 +13,14 @@ import { useState, useEffect } from "react";
 export default function useWallet({ autoConnect = false } = {}) {
   const [address, setAddress] = useState(null);
   const [connecting, setConnecting] = useState(false);
-
-  const hasMetaMask = typeof window !== "undefined" && window.ethereum;
+  // Keep false during SSR/hydration so server and client initial HTML match.
+  // Flip to true after hydration if MetaMask is installed.
+  const [hasMetaMask, setHasMetaMask] = useState(false);
 
   useEffect(() => {
-    if (!hasMetaMask) return;
+    if (typeof window === "undefined" || !window.ethereum) return;
+
+    setHasMetaMask(true);
 
     // Only auto-detect already-connected accounts when autoConnect is true.
     // This keeps the trustee portal landing clean (no auto-popup).
@@ -42,10 +45,10 @@ export default function useWallet({ autoConnect = false } = {}) {
         window.ethereum.removeListener("accountsChanged", handler);
       }
     };
-  }, [hasMetaMask, autoConnect]);
+  }, [autoConnect]);
 
   async function connect() {
-    if (!hasMetaMask) return;
+    if (typeof window === "undefined" || !window.ethereum) return;
     setConnecting(true);
     try {
       const accounts = await window.ethereum.request({

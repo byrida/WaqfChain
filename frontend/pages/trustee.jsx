@@ -116,6 +116,16 @@ export default function TrusteePortal() {
     }
   }, [address, entryMode]);
 
+  const loggedIn =
+    (entryMode === "login" && !!loginInfo) ||
+    (entryMode === "wallet" && !!address && !!applicationStatus && applicationStatus !== "unknown");
+
+  function handleLogout() {
+    localStorage.removeItem("trustee_token");
+    setConnectedAddress(null);
+    resetView();
+  }
+
   return (
     <Layout>
       <div className="mx-auto w-full max-w-6xl px-6 py-10">
@@ -127,10 +137,12 @@ export default function TrusteePortal() {
           <h1 className="mt-1 font-display text-3xl font-semibold text-mihrab">
             Manage waqf funds
           </h1>
-          <p className="mt-2 max-w-lg text-sm text-ink-soft">
-            Register as a trustee, sign in to your account, or connect a wallet
-            to manage waqf projects and send funds.
-          </p>
+          {!loggedIn && (
+            <p className="mt-2 max-w-lg text-sm text-ink-soft">
+              Register as a trustee, sign in to your account, or connect a wallet
+              to manage waqf projects and send funds.
+            </p>
+          )}
         </div>
 
         {error && (
@@ -275,9 +287,12 @@ export default function TrusteePortal() {
 
         {entryMode === "login" && loginInfo && (
           <div>
-            <button onClick={resetView} className="mb-4 text-sm font-medium text-zellige transition hover:text-zellige-deep">
-              ← Back to options
-            </button>
+            <AccountHeader
+              orgName={loginInfo.orgName}
+              walletAddress={loginInfo.walletAddress}
+              onLogout={handleLogout}
+              onRefresh={fetchAssets}
+            />
 
             {loginInfo.status === "approved" && (
               <TrusteeDashboard
@@ -317,9 +332,19 @@ export default function TrusteePortal() {
         {/* ══════════ CONNECT WALLET ══════════ */}
         {entryMode === "wallet" && (
           <div>
-            <button onClick={resetView} className="mb-4 text-sm font-medium text-zellige transition hover:text-zellige-deep">
-              ← Back to options
-            </button>
+            {!loggedIn && (
+              <button onClick={resetView} className="mb-4 text-sm font-medium text-zellige transition hover:text-zellige-deep">
+                ← Back to options
+              </button>
+            )}
+
+            {loggedIn && (
+              <AccountHeader
+                walletAddress={address}
+                onLogout={handleLogout}
+                onRefresh={fetchAssets}
+              />
+            )}
 
             {/* Not connected yet */}
             {!address && (
@@ -421,6 +446,38 @@ export default function TrusteePortal() {
         )}
       </div>
     </Layout>
+  );
+}
+
+// ─── Logged-in account header ───────────────────────────────────────────────────
+
+function AccountHeader({ orgName, walletAddress, onLogout, onRefresh }) {
+  return (
+    <div className="mb-6 rounded-2xl border border-ink/10 bg-white p-5 shadow-sm">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-zellige">
+            {orgName || "Trustee account"}
+          </p>
+          <p className="mt-0.5 font-ledger text-xs text-ink-soft">
+            Platform wallet: {walletAddress.slice(0, 10)}...{walletAddress.slice(-6)}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          {onRefresh && (
+            <button onClick={onRefresh} className="btn-ghost">
+              Refresh
+            </button>
+          )}
+          <button
+            onClick={onLogout}
+            className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-700 transition hover:bg-red-100"
+          >
+            Log out
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -848,23 +905,6 @@ function TrusteeDashboard({ walletAddress, orgName, token, allAssets, fetchAsset
 
   return (
     <div className="space-y-6">
-      {/* Wallet info */}
-      <div className="rounded-2xl border border-ink/10 bg-white p-5 shadow-sm">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-ink-soft">
-              {orgName || "Trustee account"}
-            </p>
-            <p className="mt-0.5 font-ledger text-xs text-ink-soft">
-              Platform wallet: {walletAddress.slice(0, 10)}...{walletAddress.slice(-6)}
-            </p>
-          </div>
-          <button onClick={fetchAssets} className="btn-ghost">
-            Refresh
-          </button>
-        </div>
-      </div>
-
       <CreateAssetForm address={walletAddress} token={token} onCreated={fetchAssets} />
 
       {loading ? (

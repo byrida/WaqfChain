@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import KhatamStar from "../components/KhatamStar";
+import { useRoleMode } from "../lib/useRoleMode";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
@@ -14,32 +16,28 @@ function ethToPkr(eth) {
 const NAV = [
   { href: "/", label: "Home" },
   { href: "/donor", label: "Donor" },
-  { href: "/trustee", label: "Trustee" },
   { href: "/beneficiary", label: "Beneficiary" },
   { href: "/shariah", label: "Shariah" },
 ];
 
-const STAGES = [
+const ENTRY_CARDS = [
   {
     number: "01",
     title: "Donate",
     role: "Donor portal",
-    href: "/donor",
     body: "See active waqf projects and give to them.",
+    action: "Continue as Donor",
+    href: "/donor",
+    mode: "donor",
   },
   {
     number: "02",
     title: "Manage",
     role: "Trustee portal",
-    href: "/trustee",
     body: "Trusted people send funds and record how the money is used.",
-  },
-  {
-    number: "03",
-    title: "See results",
-    role: "Beneficiary portal",
-    href: "/beneficiary",
-    body: "See how much was collected and exactly how it was spent.",
+    action: "Continue as Trustee / Login",
+    href: "/trustee",
+    mode: "trustee",
   },
 ];
 
@@ -68,6 +66,8 @@ function GirihPattern() {
 
 export default function Home() {
   const [stats, setStats] = useState(null);
+  const router = useRouter();
+  const { setRoleMode } = useRoleMode();
 
   useEffect(() => {
     let cancelled = false;
@@ -115,6 +115,11 @@ export default function Home() {
       cancelled = true;
     };
   }, []);
+
+  function enterMode(mode, href) {
+    setRoleMode(mode);
+    router.push(href);
+  }
 
   return (
     <div className="min-h-screen bg-mihrab text-porcelain">
@@ -195,38 +200,38 @@ export default function Home() {
         </div>
       </div>
 
-      {/* The flow: three portals */}
+      {/* The flow: role entry points */}
       <section className="bg-porcelain text-ink">
         <div className="mx-auto w-full max-w-6xl px-6 py-16 sm:py-20">
           <h2 className="font-display text-2xl font-semibold text-mihrab sm:text-3xl">
             How it works
           </h2>
           <p className="mt-2 max-w-lg text-sm text-ink-soft">
-            See how money moves — from donation to spending to public record.
+            Choose your role to enter the experience that matches what you want to do.
           </p>
 
-          <div className="mt-10 grid gap-5 md:grid-cols-3">
-            {STAGES.map((stage, i) => (
-              <Link
-                key={stage.href}
-                href={stage.href}
-                className="group flex flex-col rounded-2xl border border-ink/10 bg-white p-6 shadow-sm transition motion-safe:animate-rise hover:-translate-y-0.5 hover:shadow-md"
+          <div className="mt-10 grid gap-5 md:grid-cols-2">
+            {ENTRY_CARDS.map((card, i) => (
+              <button
+                key={card.href}
+                onClick={() => enterMode(card.mode, card.href)}
+                className="group flex flex-col rounded-2xl border border-ink/10 bg-white p-6 text-left shadow-sm transition motion-safe:animate-rise hover:-translate-y-0.5 hover:shadow-md"
                 style={{ animationDelay: `${i * 80}ms` }}
               >
                 <span className="font-display text-sm font-semibold text-gilt">
-                  {stage.number}
+                  {card.number}
                 </span>
                 <span className="mt-3 font-display text-2xl font-semibold text-mihrab">
-                  {stage.title}
+                  {card.title}
                 </span>
                 <span className="mt-1 text-xs font-semibold uppercase tracking-wider text-zellige">
-                  {stage.role}
+                  {card.role}
                 </span>
                 <span className="mt-3 flex-1 text-sm leading-relaxed text-ink-soft">
-                  {stage.body}
+                  {card.body}
                 </span>
                 <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-zellige-deep">
-                  Open
+                  {card.action}
                   <svg
                     viewBox="0 0 16 16"
                     className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5"
@@ -238,8 +243,27 @@ export default function Home() {
                     <path d="M2 8h11m0 0-4-4m4 4-4 4" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </span>
-              </Link>
+              </button>
             ))}
+          </div>
+
+          <div className="mt-8 text-center">
+            <Link
+              href="/beneficiary"
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-soft hover:text-mihrab"
+            >
+              Just browsing? View public results and AI reports
+              <svg
+                viewBox="0 0 16 16"
+                className="h-3.5 w-3.5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                aria-hidden="true"
+              >
+                <path d="M2 8h11m0 0-4-4m4 4-4 4" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </Link>
           </div>
         </div>
       </section>

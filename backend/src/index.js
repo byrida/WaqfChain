@@ -1,8 +1,9 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-const { startEventListener, loadHistoryFromEvents, getNextAssetId, contract, provider } = require("./services/blockchain");
+const { startEventListener, loadHistoryFromEvents, getNextAssetId, contract, provider, CONTRACT_ADDRESS } = require("./services/blockchain");
 const { seedData } = require("./services/seed");
+const trustees = require("./services/trustees");
 
 const assetsRouter = require("./routes/assets");
 const donationsRouter = require("./routes/donations");
@@ -57,12 +58,19 @@ app.listen(PORT, async () => {
     if (assetCount === 0) {
       console.log("[Auto-seed] No assets found on-chain — seeding demo data...\n");
       await seedData(contract, provider);
-      // After seeding, load history from events (seeded disbursements)
-      await loadHistoryFromEvents();
     } else {
       console.log(`[Auto-seed] Found ${assetCount} asset(s) on-chain — skipping seed.`);
-      // Load past disbursement history from blockchain events
-      await loadHistoryFromEvents();
+    }
+
+    // Load past disbursement history from blockchain events
+    await loadHistoryFromEvents();
+
+    // If the contract address changed since the last sync, re-approve backend
+    // "approved" trustees on the current contract so on-chain state never drifts.
+    try {
+      await trustees.resyncApprovedTrusteesIfChanged(contract, CONTRACT_ADDRESS);
+    } catch (err) {
+      console.warn("[Resync] Could not resync approved trustees:", err.message);
     }
   } catch (err) {
     console.warn(

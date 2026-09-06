@@ -47,6 +47,13 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ error: "trustee address is required (or provide a valid JWT)" });
     }
 
+    // Permission check must use the live on-chain approvedTrustees mapping,
+    // not the backend's cached database flag, so state can never drift.
+    const isApproved = await bc.isApprovedTrustee(trusteeAddress);
+    if (!isApproved) {
+      return res.status(403).json({ error: "Trustee is not approved on the current contract." });
+    }
+
     const result = await bc.createAsset({
       name,
       description: description || "",

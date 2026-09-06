@@ -96,16 +96,27 @@ router.post("/", async (req, res) => {
 
     // JWT custodial auth — sign with the trustee's stored key
     let contractOverride = null;
+    let trusteeAddress = null;
     const authHeader = req.headers.authorization || "";
     if (authHeader.startsWith("Bearer ")) {
       try {
         const payload = jwt.verify(authHeader.slice(7), JWT_SECRET);
+        trusteeAddress = payload.walletAddress;
         const privateKey = trustees.getDecryptedKey(payload.email);
         if (privateKey) {
           contractOverride = bc.getContractForKey(privateKey);
         }
       } catch {
         // Invalid token — fall through to default signer
+      }
+    }
+
+    // Permission check must use the live on-chain approvedTrustees mapping,
+    // not the backend's cached database flag, so state can never drift.
+    if (trusteeAddress) {
+      const isApproved = await bc.isApprovedTrustee(trusteeAddress);
+      if (!isApproved) {
+        return res.status(403).json({ error: "Trustee is not approved on the current contract." });
       }
     }
 

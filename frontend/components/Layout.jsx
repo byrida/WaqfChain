@@ -1,18 +1,27 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
 import KhatamStar from "./KhatamStar";
+import { useRoleMode } from "../lib/useRoleMode";
 
-const NAV = [
+const PUBLIC_NAV = [
   { href: "/", label: "Home" },
   { href: "/donor", label: "Donor" },
-  { href: "/trustee", label: "Trustee" },
   { href: "/beneficiary", label: "Beneficiary" },
   { href: "/shariah", label: "Shariah" },
-  { href: "/admin", label: "Admin" },
+];
+
+const TRUSTEE_NAV = [
+  { href: "/", label: "Home" },
+  { href: "/trustee", label: "Trustee" },
 ];
 
 export default function Layout({ children }) {
   const { pathname } = useRouter();
+  const { roleMode } = useRoleMode();
+
+  // Trustee mode hides donor-facing pages; otherwise show public nav.
+  // Admin is never shown in the navbar.
+  const nav = roleMode === "trustee" ? TRUSTEE_NAV : PUBLIC_NAV;
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -25,7 +34,7 @@ export default function Layout({ children }) {
             </span>
           </Link>
           <nav aria-label="Portals" className="flex items-center gap-3 text-xs sm:gap-5 sm:text-sm">
-            {NAV.map((item) => {
+            {nav.map((item) => {
               const active = pathname === item.href;
               return (
                 <Link
